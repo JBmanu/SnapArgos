@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Snap! Uploader</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"/>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&display=swap"
+          rel="stylesheet"/>
+    <link rel="stylesheet" href="dist/output.css"/>
+    <style>
+        body {
+            background-color: #0e0f14;
+            color: #e8eaf0;
+            font-family: 'Instrument Sans', sans-serif;
+        }
+
+        .font-display {
+            font-family: 'DM Mono', monospace;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+            opacity: 0.35;
+        }
+
+        .accent-bar {
+            background: linear-gradient(90deg, #ff6b35, #ffd166, #ff6b35);
+            background-size: 200%;
+            animation: shimmer 4s linear infinite;
+            height: 2px;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: 200% 0
+            }
+            100% {
+                background-position: -200% 0
+            }
+        }
+
+        .list-scroll {
+            overflow-y: auto;
+            max-height: 240px;
+        }
+
+        .badge-img {
+            background: #1a3a2a;
+            color: #4ade80;
+        }
+
+        .badge-audio {
+            background: #1a2a3a;
+            color: #60a5fa;
+        }
+
+        .badge-xml {
+            background: #2a1a3a;
+            color: #c084fc;
+        }
+
+        .bg-snap-accent\/8 {
+            background-color: rgba(255, 107, 53, 0.08);
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, .2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg)
+            }
+        }
+
+        #log-panel {
+            font-family: 'DM Mono', monospace;
+            font-size: 11px;
+            line-height: 1.7;
+        }
+
+        .log-ok {
+            color: #4ade80;
+        }
+
+        .log-err {
+            color: #f87171;
+        }
+
+        .log-info {
+            color: #60a5fa;
+        }
+
+        .log-warn {
+            color: #fbbf24;
+        }
+
+        .check-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: background .15s;
+        }
+
+        .check-item:hover {
+            background: rgba(255, 107, 53, .08);
+        }
+
+        .check-item input[type=checkbox] {
+            accent-color: #ff6b35;
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+        }
+
+        .sec-num {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #ff6b35;
+            color: #fff;
+            font-size: 11px;
+            font-family: 'DM Mono', monospace;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body class="min-h-screen relative z-10">
+
+<div class="accent-bar w-full fixed top-0 left-0 z-50"></div>
+
+<header class="sticky top-[2px] z-40 bg-[#0e0f14]/80 backdrop-blur-md border-b border-[#2a2d38] px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+        <div class="w-7 h-7 rounded-lg bg-[#ff6b35] flex items-center justify-center font-mono text-white text-xs font-medium">
+            S!
+        </div>
+        <span class="font-mono text-sm text-[#e8eaf0] tracking-wide">snap-uploader</span>
+        <span id="env-badge"
+              class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-mono bg-[#2a2d38] text-[#6b7280]">local</span>
+    </div>
+    <div id="session-pill" class="hidden items-center gap-2 text-xs font-mono text-[#6b7280]">
+        <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+        <span id="session-user"></span>
+    </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 py-8 space-y-5">
+
+    <!-- 1. CREDENTIALS -->
+    <section class="bg-[#16181f] border border-[#2a2d38] rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-4">
+            <span class="sec-num">1</span>
+            <span class="font-mono text-xs text-[#e8eaf0] tracking-widest uppercase">Credentials</span>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs font-mono uppercase tracking-widest text-[#6b7280] mb-1.5">Username</label>
+                <input id="inp-user" type="text"
+                       class="w-full bg-[#0e0f14] border border-[#2a2d38] rounded-lg px-3 py-2.5 text-[#e8eaf0] text-sm placeholder-[#6b7280]/50 focus:outline-none focus:border-[#ff6b35] focus:ring-1 focus:ring-[#ff6b35]/30 transition-all"
+                       placeholder="snap_username" autocomplete="username"/>
+            </div>
+            <div>
+                <label class="block text-xs font-mono uppercase tracking-widest text-[#6b7280] mb-1.5">Password</label>
+                <input id="inp-pass" type="password"
+                       class="w-full bg-[#0e0f14] border border-[#2a2d38] rounded-lg px-3 py-2.5 text-[#e8eaf0] text-sm placeholder-[#6b7280]/50 focus:outline-none focus:border-[#ff6b35] focus:ring-1 focus:ring-[#ff6b35]/30 transition-all"
+                       placeholder="••••••••" autocomplete="current-password"/>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. PROJECTS -->
+    <section class="bg-[#16181f] border border-[#2a2d38] rounded-xl p-5">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <span class="sec-num">2</span>
+                <span class="font-mono text-xs text-[#e8eaf0] tracking-widest uppercase">Projects</span>
+            </div>
+            <button id="btn-refresh"
+                    class="border border-[#2a2d38] hover:border-[#ff6b35]/60 text-[#6b7280] hover:text-[#e8eaf0] font-mono text-xs px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Refresh
+            </button>
+        </div>
+
+        <!-- Upload target radios -->
+        <div class="flex gap-3 mb-4">
+            <label id="rc-all"
+                   class="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#ff6b35]/60 bg-[rgba(255,107,53,0.08)] cursor-pointer transition-all flex-1">
+                <input type="radio" name="upload-target" value="all" checked class="hidden" id="r-all"/>
+                <div class="w-3.5 h-3.5 rounded-full border-2 border-[#ff6b35] flex items-center justify-center flex-shrink-0">
+                    <div id="dot-all" class="w-1.5 h-1.5 rounded-full bg-[#ff6b35]"></div>
+                </div>
+                <div>
+                    <div class="text-sm font-mono text-[#e8eaf0]">All projects</div>
+                    <div class="text-xs text-[#6b7280] mt-0.5">Upload to every project</div>
+                </div>
+            </label>
+            <label id="rc-sel"
+                   class="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#2a2d38] cursor-pointer transition-all hover:border-[#ff6b35]/40 flex-1">
+                <input type="radio" name="upload-target" value="selected" class="hidden" id="r-sel"/>
+                <div class="w-3.5 h-3.5 rounded-full border-2 border-[#2a2d38] flex items-center justify-center flex-shrink-0"
+                     id="rb-dot-sel-wrap">
+                    <div id="dot-sel" class="w-1.5 h-1.5 rounded-full bg-[#ff6b35] hidden"></div>
+                </div>
+                <div>
+                    <div class="text-sm font-mono text-[#e8eaf0]">Selected projects</div>
+                    <div class="text-xs text-[#6b7280] mt-0.5">Choose specific projects</div>
+                </div>
+            </label>
+        </div>
+
+        <!-- Project list + Sprite list -->
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-xs font-mono uppercase tracking-widest text-[#6b7280] mb-1.5">Projects <span
+                        id="proj-count" class="text-[#ff6b35]"></span></label>
+                <div id="project-list"
+                     class="list-scroll bg-[#0e0f14] rounded-lg border border-[#2a2d38] p-2 space-y-0.5 min-h-[140px]">
+                    <div class="text-xs text-[#6b7280]/50 font-mono px-2 py-4 text-center">Click Refresh to load</div>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs font-mono uppercase tracking-widest text-[#6b7280] mb-1.5">Sprites / Stage
+                    <span id="sprite-count" class="text-[#ff6b35]"></span></label>
+                <div id="sprite-list"
+                     class="list-scroll bg-[#0e0f14] rounded-lg border border-[#2a2d38] p-2 space-y-0.5 min-h-[140px]">
+                    <div class="text-xs text-[#6b7280]/50 font-mono px-2 py-4 text-center">Select a project</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. FILES -->
+    <section class="bg-[#16181f] border border-[#2a2d38] rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-4">
+            <span class="sec-num">3</span>
+            <span class="font-mono text-xs text-[#e8eaf0] tracking-widest uppercase">Files</span>
+        </div>
+
+        <!-- Drop zone -->
+        <div id="drop-zone"
+             class="border-2 border-dashed border-[#2a2d38] rounded-xl p-8 text-center cursor-pointer transition-all hover:border-[#ff6b35]/50 hover:bg-[rgba(255,107,53,0.04)] mb-4">
+            <svg class="w-8 h-8 text-[#6b7280] mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+            <p class="text-sm text-[#6b7280]">Drop files here or <span
+                    class="text-[#ff6b35] underline underline-offset-2" id="browse-link">browse</span></p>
+            <p class="text-xs text-[#6b7280]/50 mt-1 font-mono">PNG · JPG · GIF · SVG · MP3 · WAV · XML</p>
+            <input id="file-input" type="file" class="hidden" multiple
+                   accept=".png,.jpg,.jpeg,.gif,.svg,.mp3,.wav,.ogg,.xml"/>
+        </div>
+
+        <div id="file-list" class="space-y-2 mb-4"></div>
+
+        <!-- XML mode + sprite target -->
+        <div class="bg-[#0e0f14] rounded-xl border border-[#2a2d38] p-4">
+            <label class="block text-xs font-mono uppercase tracking-widest text-[#6b7280] mb-3">XML file type</label>
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <label id="um-sprite"
+                       class="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#ff6b35]/60 bg-[rgba(255,107,53,0.08)] cursor-pointer transition-all">
+                    <input type="radio" name="xml-mode" value="sprite" checked class="hidden" id="xm-sprite"/>
+                    <div class="w-3.5 h-3.5 rounded-full border-2 border-[#ff6b35] flex items-center justify-center flex-shrink-0">
+                        <div id="xdot-sprite" class="w-1.5 h-1.5 rounded-full bg-[#ff6b35]"></div>
+                    </div>
+                    <div>
+                        <div class="text-sm font-mono text-[#e8eaf0]">Sprite file</div>
+                        <div class="text-xs text-[#6b7280] mt-0.5 font-mono">&lt;sprites&gt;</div>
+                    </div>
+                </label>
+                <label id="um-blocks"
+                       class="flex items-center gap-3 px-4 py-3 rounded-xl border border-[#2a2d38] cursor-pointer transition-all hover:border-[#ff6b35]/40">
+                    <input type="radio" name="xml-mode" value="blocks" class="hidden" id="xm-blocks"/>
+                    <div class="w-3.5 h-3.5 rounded-full border-2 border-[#2a2d38] flex items-center justify-center flex-shrink-0"
+                         id="xdot-blocks-wrap">
+                        <div id="xdot-blocks" class="w-1.5 h-1.5 rounded-full bg-[#ff6b35] hidden"></div>
+                    </div>
+                    <div>
+                        <div class="text-sm font-mono text-[#e8eaf0]">Custom blocks</div>
+                        <div class="text-xs text-[#6b7280] mt-0.5 font-mono">&lt;blocks&gt;</div>
+                    </div>
+                </label>
+            </div>
+
+            <label class="block text-xs font-mono uppercase tracking-widest text-[#6b7280] mb-1.5">Target sprite for
+                images / audio</label>
+            <select id="sel-sprite"
+                    class="w-full bg-[#16181f] border border-[#2a2d38] rounded-lg px-3 py-2.5 text-[#e8eaf0] text-sm focus:outline-none focus:border-[#ff6b35] transition-all">
+                <option value="">— select a sprite from section 2 —</option>
+            </select>
+        </div>
+    </section>
+
+    <!-- 4. RUN -->
+    <section class="bg-[#16181f] border border-[#2a2d38] rounded-xl p-5">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <span class="sec-num">4</span>
+                <span class="font-mono text-xs text-[#e8eaf0] tracking-widest uppercase">Run</span>
+            </div>
+            <button id="btn-clear-log"
+                    class="border border-[#2a2d38] hover:border-[#ff6b35]/60 text-[#6b7280] hover:text-[#e8eaf0] font-mono text-[10px] px-3 py-1 rounded-lg transition-all">
+                Clear log
+            </button>
+        </div>
+
+        <div id="log-panel"
+             class="bg-[#0e0f14] rounded-lg border border-[#2a2d38] p-3 min-h-[80px] max-h-48 overflow-y-auto mb-4 space-y-0.5">
+            <div class="text-[#6b7280]/40 text-[11px]">// ready</div>
+        </div>
+
+        <div id="progress-wrap" class="hidden mb-4">
+            <div class="flex justify-between text-xs font-mono text-[#6b7280] mb-1">
+                <span id="prog-label">Uploading…</span>
+                <span id="prog-pct">0%</span>
+            </div>
+            <div class="h-1.5 bg-[#2a2d38] rounded-full overflow-hidden">
+                <div id="prog-bar" class="h-full bg-[#ff6b35] rounded-full transition-all duration-300"
+                     style="width:0%"></div>
+            </div>
+        </div>
+
+        <button id="btn-upload"
+                class="w-full py-3 text-sm flex items-center justify-center gap-2 bg-[#ff6b35] hover:bg-[#ff6b35]/90 text-white font-mono rounded-lg transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+                disabled>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+            </svg>
+            <span id="btn-upload-label">Upload to Snap!</span>
+        </button>
+    </section>
+
+</main>
+
+<script type="module">
+    import {
+        login, getProjectList, getProject, getSpritesFromXml, saveProject,
+        uploadImageToSprite, uploadAudioToSprite,
+        uploadCustomBlocks, importSpriteXml, state,
+    } from './snap-api.js';
+
+    // ── App state ────────────────────────────────────────────────────────────────
+    let projects = [];
+    let selectedProjs = new Set();
+    let files = [];
+    let xmlMode = 'sprite';
+    let uploadTarget = 'all';
+    let busy = false;
+
+    // ── DOM refs ─────────────────────────────────────────────────────────────────
+    const $ = id => document.getElementById(id);
+    const Q = sel => document.querySelectorAll(sel);
+    const inpUser = $('inp-user'), inpPass = $('inp-pass');
+    const btnRefresh = $('btn-refresh');
+    const projList = $('project-list'), spriteList = $('sprite-list');
+    const projCount = $('proj-count'), spriteCount = $('sprite-count');
+    const dropZone = $('drop-zone'), fileInput = $('file-input');
+    const fileListEl = $('file-list'), selSprite = $('sel-sprite');
+    const btnUpload = $('btn-upload'), logPanel = $('log-panel');
+    const progWrap = $('progress-wrap'), progBar = $('prog-bar');
+    const progPct = $('prog-pct'), progLabel = $('prog-label');
+
+    // ── Environment badge ────────────────────────────────────────────────────────
+    const IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    $('env-badge').textContent = IS_LOCAL ? 'local' : 'github pages';
+    if (!IS_LOCAL) {
+        $('env-badge').style.cssText = 'background:rgba(255,107,53,0.15);color:#ff6b35';
+    }
+
+    // ── Logging ──────────────────────────────────────────────────────────────────
+    function log(msg, type = 'info') {
+        const d = document.createElement('div');
+        const map = {ok: ['log-ok', '✓'], err: ['log-err', '✗'], info: ['log-info', '·'], warn: ['log-warn', '!']};
+        const [cls, pfx] = map[type] || map.info;
+        d.className = cls;
+        d.textContent = `${pfx}  ${msg}`;
+        logPanel.appendChild(d);
+        logPanel.scrollTop = logPanel.scrollHeight;
+    }
+
+    $('btn-clear-log').onclick = () => {
+        logPanel.innerHTML = '<div style="color:#6b7280;opacity:.4;font-size:11px">// cleared</div>';
+    };
+
+    // ── Radio helpers ─────────────────────────────────────────────────────────────
+    function activateRadio(groupName, value) {
+        Q(`input[name="${groupName}"]`).forEach(r => {
+            const isMe = r.value === value;
+            // card border/bg
+            const cardId = r.id.replace('r-', 'rc-').replace('xm-', 'um-');
+            const card = $(cardId);
+            if (card) {
+                card.style.borderColor = isMe ? 'rgba(255,107,53,0.6)' : '#2a2d38';
+                card.style.background = isMe ? 'rgba(255,107,53,0.08)' : '';
+            }
+            // dot
+            const dotId = r.id.replace('r-', 'dot-').replace('xm-', 'xdot-');
+            const dot = $(dotId);
+            if (dot) dot.classList.toggle('hidden', !isMe);
+            // dot-wrap border
+            const wrapId = dotId + '-wrap';
+            const wrap = $(wrapId);
+            if (wrap) wrap.style.borderColor = isMe ? '#ff6b35' : '#2a2d38';
+        });
+    }
+
+    Q('input[name="upload-target"]').forEach(r => {
+        r.addEventListener('change', () => {
+            uploadTarget = r.value;
+            activateRadio('upload-target', r.value);
+            renderProjects();
+            refreshUploadBtn();
+        });
+    });
+    Q('input[name="xml-mode"]').forEach(r => {
+        r.addEventListener('change', () => {
+            xmlMode = r.value;
+            activateRadio('xml-mode', r.value);
+        });
+    });
+
+    // ── Refresh / Login ──────────────────────────────────────────────────────────
+    btnRefresh.addEventListener('click', async () => {
+        if (busy) return;
+        const user = inpUser.value.trim(), pass = inpPass.value;
+        if (!user || !pass) {
+            log('Enter username and password first', 'warn');
+            return;
+        }
+        setBusy(true);
+        btnRefresh.innerHTML = '<span class="spinner"></span> Loading…';
+        try {
+            const loggedAs = await login(user, pass);
+            log(`Logged in as "${loggedAs}"`, 'ok');
+            const sp = $('session-pill');
+            sp.classList.remove('hidden');
+            sp.classList.add('flex');
+            $('session-user').textContent = loggedAs;
+
+            projects = await getProjectList();
+            if (!Array.isArray(projects)) projects = [];
+            log(`${projects.length} project(s) loaded`, 'ok');
+            renderProjects();
+            refreshUploadBtn();
+        } catch (e) {
+            log(e.message, 'err');
+        } finally {
+            setBusy(false);
+            btnRefresh.innerHTML = `<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Refresh`;
+        }
+    });
+
+    // ── Project list ─────────────────────────────────────────────────────────────
+    function renderProjects() {
+        projList.innerHTML = '';
+        projCount.textContent = projects.length ? `(${projects.length})` : '';
+        if (!projects.length) {
+            projList.innerHTML = '<div style="color:#6b7280;opacity:.5;font-size:11px;padding:16px;text-align:center;font-family:monospace">No projects found</div>';
+            return;
+        }
+        projects.forEach(p => {
+            const row = document.createElement('div');
+            const date = p.lastupdated ? new Date(p.lastupdated).toLocaleDateString() : '';
+            row.style.cssText = 'padding:6px 8px;border-radius:8px;cursor:pointer;font-size:13px;color:#6b7280;transition:all .15s;';
+            row.onmouseenter = () => {
+                if (!selectedProjs.has(p.projectname)) row.style.background = 'rgba(255,255,255,.04)';
+            };
+            row.onmouseleave = () => {
+                if (!selectedProjs.has(p.projectname)) row.style.background = '';
+            };
+
+            if (uploadTarget === 'all') {
+                row.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.projectname)}</span><span style="font-size:10px;opacity:.5;margin-left:8px;font-family:monospace">${date}</span></div>`;
+                row.addEventListener('click', () => loadSprites(p.projectname));
+            } else {
+                const isChecked = selectedProjs.has(p.projectname);
+                if (isChecked) {
+                    row.style.background = 'rgba(255,107,53,.1)';
+                    row.style.color = '#e8eaf0';
+                }
+                row.innerHTML = `<label class="check-item" style="width:100%">
+        <input type="checkbox" ${isChecked ? 'checked' : ''} style="accent-color:#ff6b35;width:14px;height:14px;cursor:pointer"/>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.projectname)}</span>
+        <span style="font-size:10px;opacity:.5;font-family:monospace">${date}</span>
+      </label>`;
+                row.querySelector('input').addEventListener('change', e => {
+                    if (e.target.checked) {
+                        selectedProjs.add(p.projectname);
+                        row.style.background = 'rgba(255,107,53,.1)';
+                        row.style.color = '#e8eaf0';
+                    } else {
+                        selectedProjs.delete(p.projectname);
+                        row.style.background = '';
+                        row.style.color = '#6b7280';
+                    }
+                    refreshUploadBtn();
+                });
+                row.addEventListener('click', e => {
+                    if (e.target.tagName !== 'INPUT') loadSprites(p.projectname);
+                });
+            }
+            projList.appendChild(row);
+        });
+    }
+
+    // ── Sprite loading ────────────────────────────────────────────────────────────
+    async function loadSprites(projectName) {
+        spriteList.innerHTML = '<div style="padding:16px;text-align:center"><span class="spinner"></span></div>';
+        spriteCount.textContent = '';
+        try {
+            const {projectXml} = await getProject(projectName);
+            const sprites = getSpritesFromXml(projectXml);
+            spriteCount.textContent = `(${sprites.length})`;
+            spriteList.innerHTML = '';
+            selSprite.innerHTML = '<option value="">— none —</option>';
+
+            sprites.forEach(s => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;font-size:13px;color:#6b7280;transition:color .15s;';
+                row.innerHTML = `<span style="color:#6b7280;opacity:.5">${s.type === 'stage' ? '◼' : '◆'}</span><span>${esc(s.name)}</span><span style="margin-left:auto;font-size:10px;font-family:monospace;opacity:.4">${s.type}</span>`;
+                row.onmouseenter = () => row.style.color = '#e8eaf0';
+                row.onmouseleave = () => {
+                    if (selSprite.value !== s.name) row.style.color = '#6b7280';
+                };
+                row.addEventListener('click', () => {
+                    selSprite.value = s.name;
+                    document.querySelectorAll('#sprite-list > div').forEach(el => el.style.color = '#6b7280');
+                    row.style.color = '#ffd166';
+                    refreshUploadBtn();
+                });
+                spriteList.appendChild(row);
+
+                const opt = document.createElement('option');
+                opt.value = s.name;
+                opt.textContent = s.name;
+                selSprite.appendChild(opt);
+            });
+        } catch (e) {
+            spriteList.innerHTML = `<div style="color:#f87171;font-size:11px;padding:12px;font-family:monospace">${esc(e.message)}</div>`;
+            log(`Error loading sprites: ${e.message}`, 'err');
+        }
+    }
+
+    // ── File handling ─────────────────────────────────────────────────────────────
+    function addFiles(newFiles) {
+        for (const f of newFiles) {
+            if (!files.find(x => x.name === f.name && x.size === f.size)) files.push(f);
+        }
+        renderFiles();
+        refreshUploadBtn();
+    }
+
+    function renderFiles() {
+        fileListEl.innerHTML = '';
+        files.forEach((f, i) => {
+            const ext = f.name.split('.').pop().toLowerCase();
+            const kind = ['png', 'jpg', 'jpeg', 'gif', 'svg'].includes(ext) ? 'img' : ['mp3', 'wav', 'ogg'].includes(ext) ? 'audio' : 'xml';
+            const cls = {img: 'badge-img', audio: 'badge-audio', xml: 'badge-xml'}[kind];
+            const chip = document.createElement('div');
+            chip.style.cssText = 'display:flex;align-items:center;gap:8px;background:#0e0f14;border:1px solid #2a2d38;border-radius:8px;padding:6px 10px;font-size:12px;font-family:monospace;color:#e8eaf0;';
+            chip.innerHTML = `<span class="${cls}" style="padding:2px 6px;border-radius:4px;font-size:11px">${ext}</span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span><span style="color:#6b7280;opacity:.6">${(f.size / 1024).toFixed(0)} KB</span><button style="color:#6b7280;margin-left:4px;background:none;border:none;cursor:pointer;font-size:13px" data-i="${i}">✕</button>`;
+            chip.querySelector('button').addEventListener('click', () => {
+                files.splice(i, 1);
+                renderFiles();
+                refreshUploadBtn();
+            });
+            fileListEl.appendChild(chip);
+        });
+    }
+
+    dropZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropZone.style.borderColor = '#ff6b35';
+        dropZone.style.background = 'rgba(255,107,53,0.06)';
+    });
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.style.borderColor = '';
+        dropZone.style.background = '';
+    });
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.style.borderColor = '';
+        dropZone.style.background = '';
+        addFiles(e.dataTransfer.files);
+    });
+    $('browse-link').addEventListener('click', e => {
+        e.stopPropagation();
+        fileInput.click();
+    });
+    dropZone.addEventListener('click', e => {
+        if (e.target.id !== 'browse-link') fileInput.click();
+    });
+    fileInput.addEventListener('change', () => {
+        addFiles(fileInput.files);
+        fileInput.value = '';
+    });
+    selSprite.addEventListener('change', refreshUploadBtn);
+
+    // ── Upload button state ───────────────────────────────────────────────────────
+    function refreshUploadBtn() {
+        const ok = !!state.username &&
+            (uploadTarget === 'all' ? projects.length > 0 : selectedProjs.size > 0) &&
+            files.length > 0 && !busy;
+        btnUpload.disabled = !ok;
+    }
+
+    // ── MAIN UPLOAD ───────────────────────────────────────────────────────────────
+    btnUpload.addEventListener('click', async () => {
+        if (busy || btnUpload.disabled) return;
+        const targets = uploadTarget === 'all' ? projects.map(p => p.projectname) : [...selectedProjs];
+        if (!targets.length) {
+            log('No projects selected', 'warn');
+            return;
+        }
+        if (!files.length) {
+            log('No files to upload', 'warn');
+            return;
+        }
+
+        const targetSprite = selSprite.value || null;
+        let done = 0;
+        setBusy(true);
+        setProgress(true, 0, `0 / ${targets.length} projects…`);
+        log(`Starting: ${targets.length} project(s), ${files.length} file(s)`, 'info');
+
+        for (const projName of targets) {
+            log(`↓ Fetching "${projName}"…`, 'info');
+            try {
+                let {projectXml, mediaXml} = await getProject(projName);
+
+                for (const file of files) {
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    const kind = ['png', 'jpg', 'jpeg', 'gif', 'svg'].includes(ext) ? 'img' : ['mp3', 'wav', 'ogg'].includes(ext) ? 'audio' : 'xml';
+
+                    if (kind === 'img') {
+                        if (!targetSprite) {
+                            log(`  ⚠ No sprite target for "${file.name}" — skipped`, 'warn');
+                            continue;
+                        }
+                        const r = await uploadImageToSprite(projectXml, mediaXml, targetSprite, file);
+                        projectXml = r.projectXml;
+                        mediaXml = r.mediaXml;
+                        log(`  + image "${file.name}" → "${targetSprite}"`, 'ok');
+                    } else if (kind === 'audio') {
+                        if (!targetSprite) {
+                            log(`  ⚠ No sprite target for "${file.name}" — skipped`, 'warn');
+                            continue;
+                        }
+                        const r = await uploadAudioToSprite(projectXml, mediaXml, targetSprite, file);
+                        projectXml = r.projectXml;
+                        mediaXml = r.mediaXml;
+                        log(`  + audio "${file.name}" → "${targetSprite}"`, 'ok');
+                    } else {
+                        const text = await file.text();
+                        if (xmlMode === 'blocks') {
+                            const r = uploadCustomBlocks(projectXml, mediaXml, text);
+                            projectXml = r.projectXml;
+                            mediaXml = r.mediaXml;
+                            log(`  + custom blocks "${file.name}"`, 'ok');
+                        } else {
+                            const r = importSpriteXml(projectXml, mediaXml, text);
+                            projectXml = r.projectXml;
+                            mediaXml = r.mediaXml;
+                            log(`  + sprite(s) from "${file.name}"`, 'ok');
+                        }
+                    }
+                }
+
+                await saveProject(projName, projectXml, mediaXml);
+                log(`  ✓ saved "${projName}"`, 'ok');
+            } catch (e) {
+                log(`  ✗ "${projName}": ${e.message}`, 'err');
+            }
+
+            done++;
+            setProgress(true, done / targets.length * 100, `${done} / ${targets.length} done`);
+        }
+
+        log(`Complete: ${done}/${targets.length} projects`, done === targets.length ? 'ok' : 'warn');
+        setProgress(false);
+        setBusy(false);
+    });
+
+    // ── Helpers ───────────────────────────────────────────────────────────────────
+    function setBusy(v) {
+        busy = v;
+        btnUpload.disabled = v;
+        if (!v) refreshUploadBtn();
+        $('btn-upload-label').textContent = v ? 'Uploading…' : 'Upload to Snap!';
+    }
+
+    function setProgress(show, pct = 0, label = '') {
+        progWrap.classList.toggle('hidden', !show);
+        if (show) {
+            progBar.style.width = pct + '%';
+            progPct.textContent = Math.round(pct) + '%';
+            progLabel.textContent = label;
+        }
+    }
+
+    function esc(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+</script>
+</body>
+</html>
