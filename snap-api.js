@@ -1,252 +1,361 @@
 /**
- * snap-api.js — Browser API layer
- *
- * In locale   : chiama /snap-api/* sul proxy Node (che fa le richieste reali
- *               a Snap! server-side, esattamente come login2.js)
- * In produzione: chiama corsproxy.io → snap.berkeley.edu direttamente
- *
- * Il sessionId (locale) viene passato come header x-session-id su ogni
- * richiesta al proxy, così Node mantiene il proprio cookie jar per sessione.
+ * snap-api.js — Snap! Cloud API (browser)
+ * LOCAL -> /snap-api/*  |  PROD -> corsproxy.io -> snap.berkeley.edu/api/v1
  */
 
-const IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const IS_LOCAL  = ['localhost','127.0.0.1'].includes(location.hostname);
+const PROD_BASE = 'https://corsproxy.io/?https://snap.berkeley.edu/api/v1';
 
-export const state = {
-    username  : null,
-    sessionId : null,   // solo in locale: id del jar Node
-    cookie    : null,   // solo in produzione: cookie Snap! manuale
-};
+export const state = { username: null, sessionId: null, cookie: null };
 
-// ─── Low-level request ────────────────────────────────────────────────────────
+// ── Core HTTP ─────────────────────────────────────────────────────────────────
 async function req(method, path, { body, wantsRaw = false } = {}) {
-    let url, headers = { 'Content-Type': 'application/json; charset=utf-8' };
-
-    if (IS_LOCAL) {
-        // Chiama il bridge Node — nessun problema CORS, nessun cookie browser
-        url = `/snap-api${path}`;
-        if (state.sessionId) headers['x-session-id'] = state.sessionId;
-    } else {
-        // Produzione: chiama direttamente Snap! attraverso corsproxy.io
-        url = `https://corsproxy.io/?https://snap.berkeley.edu/api/v1${path}`;
-        if (state.cookie) {
-            headers['Cookie'] = state.cookie;
-            headers['x-requested-with'] = 'XMLHttpRequest';
-        }
-    }
-
+    const headers = { 'Content-Type': 'application/json; charset=utf-8' };
+    const url = IS_LOCAL ? `/snap-api${path}` : PROD_BASE + path;
+    if (IS_LOCAL  && state.sessionId) headers['x-session-id'] = state.sessionId;
+    if (!IS_LOCAL && state.cookie)    headers['Cookie']        = state.cookie;
     const res = await fetch(url, {
-        method,
-        headers,
+        method, headers,
         credentials: IS_LOCAL ? 'same-origin' : 'omit',
-        body: body !== undefined
-            ? (typeof body === 'string' ? body : JSON.stringify(body))
-            : undefined,
+        body: body == null ? undefined : typeof body === 'string' ? body : JSON.stringify(body),
     });
-
-    // In produzione: salva cookie manualmente
-    if (!IS_LOCAL) {
-        const sc = res.headers.get('set-cookie');
-        if (sc) state.cookie = sc.split(';')[0];
-    }
-
-    // Leggi sessionId dal bridge locale
-    if (IS_LOCAL) {
-        const sid = res.headers.get('x-session-id');
-        if (sid) state.sessionId = sid;
-    }
-
+    if (IS_LOCAL) { const s = res.headers.get('x-session-id'); if (s) state.sessionId = s; }
+    else          { const s = res.headers.get('set-cookie');    if (s) state.cookie = s.split(';')[0]; }
     const text = await res.text();
-    if (!text) throw new Error(`Empty response ${method} ${path}`);
-
-    if (!wantsRaw || text.startsWith('{"errors"') || text.startsWith('{"error"')) {
-        let json;
-        try { json = JSON.parse(text); } catch { throw new Error(text); }
-        if (json.errors) throw new Error(json.errors[0]);
-        if (json.error)  throw new Error(json.error);
-        return json.message !== undefined ? json.message : json;
+    if (!text) throw new Error(`Empty response ${method} ${path} (${res.status})`);
+    if (!wantsRaw || text.startsWith('{"error')) {
+        let j; try { j = JSON.parse(text); } catch { throw new Error(text); }
+        if (j.errors) throw new Error(j.errors[0]);
+        if (j.error)  throw new Error(j.error);
+        return j.message !== undefined ? j.message : j;
     }
     return text;
 }
 
-// ─── 1. LOGIN ─────────────────────────────────────────────────────────────────
-/**
- * Locale   : POST /snap-api/login  { username, password }
- *            → Node fa sha512 + chiamata reale (come login2.js)
- * Produzione: POST diretto a Snap! con sha512 browser
- */
+// ── Auth ──────────────────────────────────────────────────────────────────────
 export async function login(username, password) {
     if (IS_LOCAL) {
-        // Il proxy Node gestisce tutto — password in chiaro, ci pensa Node a fare sha512
-        const result = await req('POST', '/login', { body: { username, password } });
-        state.username  = result.username;
-        state.sessionId = result.sessionId;
-        return result.username;
+        const r = await req('POST', '/login', { body: { username, password } });
+        state.username = r.username; state.sessionId = r.sessionId;
     } else {
-        // Produzione: sha512 nel browser, chiamata diretta
-        const hashed = await sha512(password);
-        await req('POST',
-            `/users/${encodeURIComponent(username.toLowerCase())}/login?persist=true`,
-            { body: hashed }
-        );
-        const user = await req('GET', '/users/c');
-        state.username = user.username;
-        return user.username;
+        await req('POST', `/users/${enc(username.toLowerCase())}/login?persist=true`, { body: await sha512(password) });
+        state.username = (await req('GET', '/users/c')).username;
     }
+    return state.username;
 }
 
-// ─── 2. GET PROJECT LIST ──────────────────────────────────────────────────────
-/**
- * cloud.js → Cloud.prototype.getProjectList()
- * GET /projects/{username}?updatingnotes=true
- */
+// ── Projects ──────────────────────────────────────────────────────────────────
 export async function getProjectList() {
     assertLoggedIn();
-    if (IS_LOCAL) {
-        return req('GET', '/projects');
-    } else {
-        return req('GET', `/users/${enc(state.username)}/projects?updatingnotes=true`);
-    }
+    if (IS_LOCAL) return req('GET', '/projects');
+    const r = await req('GET', `/projects/${enc(state.username)}?updatingnotes=true`);
+    return Array.isArray(r) ? r : (r?.projects ?? []);
 }
 
-// ─── 3. GET PROJECT ───────────────────────────────────────────────────────────
-/**
- * cloud.js → Cloud.prototype.getProject()
- * GET /projects/{username}/{name}  → raw XML
- */
 export async function getProject(projectName) {
     assertLoggedIn();
-    let raw;
-    if (IS_LOCAL) {
-        raw = await req('GET', `/project/${enc(projectName)}`, { wantsRaw: true });
-    } else {
-        raw = await req('GET',
-            `/projects/${enc(state.username)}/${enc(projectName)}`,
-            { wantsRaw: true }
-        );
-    }
+    const raw = await (IS_LOCAL
+        ? req('GET', `/project/${enc(projectName)}`, { wantsRaw: true })
+        : req('GET', `/projects/${enc(state.username)}/${enc(projectName)}`, { wantsRaw: true }));
     return {
-        projectXml : extractTag(raw, 'project'),
-        mediaXml   : extractTag(raw, 'media') || '<media></media>',
-        raw,
+        projectXml: extractTag(raw, 'project'),
+        mediaXml:   extractTag(raw, 'media') || '<media></media>',
     };
 }
 
-// ─── 4. SAVE PROJECT ──────────────────────────────────────────────────────────
-/**
- * cloud.js → Cloud.prototype.saveProject()
- * POST /projects/{username}/{name}  body: { xml, media, thumbnail, notes, remixID }
- */
 export async function saveProject(projectName, projectXml, mediaXml, notes = '') {
     assertLoggedIn();
-    const body = {
-        xml      : projectXml,
-        media    : mediaXml,
-        thumbnail: BLANK_THUMBNAIL,
-        notes,
-        remixID  : null,
-    };
-    const size = JSON.stringify(body).length;
-    if (size > 10 * 1024 * 1024) throw new Error(`Project too large: ${Math.round(size/1024)} KB`);
-
-    if (IS_LOCAL) {
-        return req('POST', `/project/${enc(projectName)}`, { body });
-    } else {
-        return req('POST',
-            `/projects/${enc(state.username)}/${enc(projectName)}`,
-            { body }
-        );
-    }
+    const body = { xml: projectXml, media: mediaXml, thumbnail: BLANK_PNG, notes, remixID: null };
+    if (JSON.stringify(body).length > 10*1024*1024) throw new Error('Project exceeds 10 MB limit');
+    return IS_LOCAL
+        ? req('POST', `/project/${enc(projectName)}`, { body })
+        : req('POST', `/projects/${enc(state.username)}/${enc(projectName)}`, { body });
 }
 
-// ─── 5. GET SPRITES FROM XML ──────────────────────────────────────────────────
+// ── File type helpers ─────────────────────────────────────────────────────────
+export const EXTS_IMG   = ['png','jpg','jpeg','gif','svg'];
+export const EXTS_AUDIO = ['mp3','wav','ogg'];
+export function fileExt(file)  { return file.name.split('.').pop().toLowerCase(); }
+export function fileBase(file) { return file.name.replace(/\.[^.]+$/, ''); }
+
+export async function detectXmlType(file) {
+    const s = (await file.slice(0, 300).text()).trimStart();
+    if (s.startsWith('<sprites'))               return 'sprite';
+    if (s.startsWith('<blocks'))                return 'blocks';
+    if (s.startsWith('<scripts'))               return 'scripts';   // Snap! script export wrapper
+    if (s.startsWith('<script ') || s.startsWith('<script>')) return 'script';  // single script node
+    if (s.startsWith('<block-definition'))      return 'blockdef';
+    return 'unknown';
+}
+
+// project mode: only sprite/blocks xml
+// sprite  mode: only img / audio / script xml (NO blocks)
+export function isFileAccepted(file, selMode, xmlType = null) {
+    const e = fileExt(file);
+    if (selMode === 'projects') {
+        if (e !== 'xml') return false;
+        if (xmlType && !['sprite','blocks'].includes(xmlType)) return false;
+        return true;
+    }
+    if (selMode === 'sprites') {
+        if (EXTS_IMG.includes(e) || EXTS_AUDIO.includes(e)) return true;
+        if (e === 'xml') {
+            if (xmlType && !['script','scripts'].includes(xmlType)) return false;
+            return true;
+        }
+    }
+    return false;
+}
+
 export function getSpritesFromXml(projectXml) {
-    const names = [{ name: 'Stage', type: 'stage' }];
-    for (const m of projectXml.matchAll(/<sprite[^>]+name="([^"]+)"/g)) {
-        names.push({ name: m[1], type: 'sprite' });
-    }
-    return names;
+    const list = [{ name: 'Stage', type: 'stage' }];
+    for (const m of projectXml.matchAll(/<sprite[^>]+name="([^"]+)"/g))
+        list.push({ name: m[1], type: 'sprite' });
+    return list;
 }
 
-// ─── 6. ADD SPRITE ────────────────────────────────────────────────────────────
-export function addNewSprite(projectXml, spriteName = 'Sprite') {
-    const existing = [...projectXml.matchAll(/<sprite[^>]+name="([^"]+)"/g)].map(m => m[1]);
-    const name     = uniqueName(spriteName, existing);
-    const xml =
-        `<sprite name="${esc(name)}" idx="${existing.length + 1}" ` +
-        `x="0" y="0" heading="90" scale="1" volume="100" pan="0" ` +
-        `rotation="1" draggable="true" costume="0" color="80,80,80,1" ` +
-        `pen="tip" id="${rndId()}">` +
-        `<costumes><list id="${rndId()}"></list></costumes>` +
-        `<sounds><list id="${rndId()}"></list></sounds>` +
-        `<blocks></blocks><variables></variables><scripts></scripts>` +
-        `</sprite>`;
-    if (!projectXml.includes('</sprites>')) throw new Error('</sprites> not found');
-    return { projectXml: projectXml.replace('</sprites>', xml + '</sprites>'), spriteName: name };
-}
+// ── XML mutations ─────────────────────────────────────────────────────────────
 
-// ─── 7. UPLOAD IMAGE ──────────────────────────────────────────────────────────
-export async function uploadImageToSprite(projectXml, mediaXml, spriteName, file) {
-    const { dataURL, name } = await fileToDataURL(file);
-    const cosXml = `<item><costume name="${esc(name)}" center-x="0" center-y="0" image="${esc(dataURL)}" id="${rndId()}"/></item>`;
-    return { projectXml: injectIntoSprite(projectXml, spriteName, 'costumes', cosXml), mediaXml };
-}
-
-// ─── 8. UPLOAD AUDIO ──────────────────────────────────────────────────────────
-export async function uploadAudioToSprite(projectXml, mediaXml, spriteName, file) {
-    const { dataURL, name } = await fileToDataURL(file);
-    const sndXml = `<item><sound name="${esc(name)}" sound="${esc(dataURL)}" id="${rndId()}"/></item>`;
-    return { projectXml: injectIntoSprite(projectXml, spriteName, 'sounds', sndXml), mediaXml };
-}
-
-// ─── 9. CUSTOM BLOCKS ─────────────────────────────────────────────────────────
-export function uploadCustomBlocks(projectXml, mediaXml, xmlString) {
-    if (!xmlString.trim().startsWith('<blocks')) throw new Error('Expected <blocks…>');
-    const inner = xmlString.replace(/^<blocks[^>]*>/, '').replace(/<\/blocks>\s*$/, '').trim();
-    if (!inner) return { projectXml, mediaXml };
-    if (!projectXml.includes('</blocks>')) throw new Error('</blocks> not found');
-    return { projectXml: projectXml.replace('</blocks>', inner + '</blocks>'), mediaXml };
-}
-
-// ─── 10. IMPORT SPRITE XML ────────────────────────────────────────────────────
 export function importSpriteXml(projectXml, mediaXml, xmlString) {
-    if (!xmlString.trim().startsWith('<sprites')) throw new Error('Expected <sprites…>');
+    if (!xmlString.trimStart().startsWith('<sprites')) throw new Error('Expected <sprites>');
     const nodes    = extractAllTags(xmlString, 'sprite');
     if (!nodes.length) throw new Error('No <sprite> nodes found');
-    const existing = [...projectXml.matchAll(/<sprite[^>]+name="([^"]+)"/g)].map(m => m[1]);
-    let mod = projectXml;
+    const existing = xmlAttrAll(projectXml, 'sprite', 'name');
+    const skipped  = [];
+    let pxml = projectXml;
     for (let node of nodes) {
-        const m = node.match(/name="([^"]+)"/);
-        if (m) {
-            const safe = uniqueName(m[1], existing);
-            if (safe !== m[1]) node = node.replace(`name="${m[1]}"`, `name="${safe}"`);
-            existing.push(safe);
-        }
-        mod = mod.replace('</sprites>', node + '</sprites>');
+        const name = node.match(/name="([^"]+)"/)?.[1];
+        if (name && existing.includes(name)) { skipped.push(name); continue; }
+        if (name) existing.push(name);
+        pxml = pxml.replace('</sprites>', node + '</sprites>');
     }
-    let modMedia = mediaXml;
     const spMedia = extractTag(xmlString, 'media');
     if (spMedia) {
         const inner = spMedia.replace(/^<media[^>]*>/, '').replace(/<\/media>$/, '').trim();
-        if (inner) modMedia = modMedia.replace('</media>', inner + '</media>');
+        if (inner) mediaXml = mediaXml.replace('</media>', inner + '</media>');
     }
-    return { projectXml: mod, mediaXml: modMedia };
+    return { projectXml: pxml, mediaXml, skipped };
 }
 
-// ─── XML helpers ──────────────────────────────────────────────────────────────
+export function importCustomBlocks(projectXml, mediaXml, xmlString) {
+    if (!xmlString.trimStart().startsWith('<blocks')) throw new Error('Expected <blocks>');
+    const existingNames = [...projectXml.matchAll(/<block-definition[^>]+s="([^"]+)"/g)].map(m => m[1]);
+    const defs    = extractAllTags(xmlString, 'block-definition');
+    const skipped = [];
+    let toAdd     = '';
+    if (defs.length) {
+        for (const def of defs) {
+            const name = def.match(/s="([^"]+)"/)?.[1] || def.match(/name="([^"]+)"/)?.[1];
+            if (name && existingNames.includes(name)) { skipped.push(name); continue; }
+            if (name) existingNames.push(name);
+            toAdd += def;
+        }
+    } else {
+        toAdd = xmlString.replace(/^<blocks[^>]*>/, '').replace(/<\/blocks>\s*$/, '').trim();
+    }
+    if (!toAdd) return { projectXml, mediaXml, skipped };
+    if (!projectXml.includes('</blocks>')) throw new Error('</blocks> not found in project XML');
+    return { projectXml: projectXml.replace('</blocks>', toAdd + '</blocks>'), mediaXml, skipped };
+}
+
+// ── Stage/Sprite asset injection ─────────────────────────────────────────────
+//
+// Snap! 11 XML structure (confirmed from real project XML):
+//
+//   <project>
+//     <scenes><scene>
+//       <blocks>...</blocks>          ← global custom blocks
+//       <stage name="Stage" ...>
+//         <costumes><list id="N">...</list></costumes>
+//         <sounds><list id="N">...</list></sounds>
+//         <scripts>...</scripts>
+//         <sprites select="1">
+//           <sprite name="Sprite1" ...>
+//             <costumes><list id="N">...</list></costumes>
+//             <sounds><list id="N">...</list></sounds>
+//             <scripts><script x="N" y="N">...</script></scripts>
+//           </sprite>
+//         </sprites>
+//       </stage>
+//     </scene></scenes>
+//   </project>
+//
+// Images/sounds are stored INLINE (base64 in the image/sound attribute).
+// No separate <media> section in Snap! 11.
+// Scripts are DIRECT children of <scripts> — never inside <list>.
+// Empty lists may have struct="atomic": <list struct="atomic" id="N"></list>
+
+/**
+ * Find the start index of the target block in projectXml.
+ * For 'Stage': finds <stage ...> (NOT a sprite)
+ * For others:  finds <sprite name="NAME" ...>
+ */
+function findTargetStart(projectXml, targetName) {
+    if (targetName === 'Stage') {
+        const m = projectXml.match(/<stage[\s]/);
+        if (!m) throw new Error('Stage not found in project XML');
+        return projectXml.indexOf(m[0]);
+    }
+    const re = new RegExp(`<sprite[^>]+name="${escRe(targetName)}"[^>]*>`);
+    const m  = projectXml.match(re);
+    if (!m) throw new Error(`Sprite "${targetName}" not found in project XML`);
+    return projectXml.indexOf(m[0]);
+}
+
+/**
+ * Extract the outer tag name for the target ('stage' or 'sprite').
+ */
+function targetTag(targetName) {
+    return targetName === 'Stage' ? 'stage' : 'sprite';
+}
+
+/**
+ * Get existing asset names (costume/sound) for duplicate detection.
+ */
+function getAssetNames(projectXml, targetName, assetTag) {
+    try {
+        const start   = findTargetStart(projectXml, targetName);
+        const tag     = targetTag(targetName);
+        const blockXml = extractTag(projectXml.slice(start), tag);
+        if (!blockXml) return [];
+        return [...blockXml.matchAll(new RegExp(`<${assetTag}[^>]+name="([^"]+)"`, 'g'))].map(m => m[1]);
+    } catch { return []; }
+}
+
+/**
+ * Inject an asset <item> node into the <list> inside costumes/sounds of a target.
+ * Works for both Stage (<stage>) and sprites (<sprite>).
+ *
+ * Uses the same approach as the working snap_headless.js:
+ * - Extract sprite/stage block
+ * - Extract section (costumes/sounds) within it
+ * - Extract list within section
+ * - String-replace list to inject item before </list>
+ * - Reconstruct projectXml
+ */
+function injectAssetItem(projectXml, targetName, section, itemXml) {
+    const start    = findTargetStart(projectXml, targetName);
+    const tag      = targetTag(targetName);
+    const blockXml = extractTag(projectXml.slice(start), tag);
+    if (!blockXml) throw new Error(`Cannot extract <${tag}> for "${targetName}"`);
+
+    const sectionXml = extractTag(blockXml, section);
+    if (!sectionXml) throw new Error(`<${section}> not found in "${targetName}"`);
+
+    const listXml = extractTag(sectionXml, 'list');
+    if (!listXml) throw new Error(`<list> not found in <${section}> of "${targetName}"`);
+
+    // Inject before </list>.
+    // CRITICAL: Remove struct="atomic" if present — it marks an EMPTY list in Snap! 11.
+    // Snap! ignores items inside a struct="atomic" list, so we must strip it.
+    const cleanList  = listXml.replace(/\s*struct="atomic"/, '');
+    const newList    = cleanList.replace('</list>', itemXml + '</list>');
+    const newSection = sectionXml.replace(listXml, newList);
+    const newBlock   = blockXml.replace(sectionXml, newSection);
+
+    return projectXml.slice(0, start) + newBlock + projectXml.slice(start + blockXml.length);
+}
+
+export async function uploadImageToSprite(projectXml, mediaXml, targetName, file) {
+    const { dataURL, name } = await readFile(file);
+    if (getAssetNames(projectXml, targetName, 'costume').includes(name))
+        return { projectXml, mediaXml, skipped: name };
+    const ext  = fileExt(file);
+    const mime = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg',
+                   gif:'image/gif', svg:'image/svg+xml' }[ext] || 'image/png';
+    // Re-encode with correct mime type (readFile uses generic data URL)
+    const item = `<item><costume name="${xa(name)}" center-x="0" center-y="0" image="${xa(dataURL)}" id="${rndId()}"/></item>`;
+    return { projectXml: injectAssetItem(projectXml, targetName, 'costumes', item), mediaXml, skipped: null };
+}
+
+export async function uploadAudioToSprite(projectXml, mediaXml, targetName, file) {
+    const { dataURL, name } = await readFile(file);
+    if (getAssetNames(projectXml, targetName, 'sound').includes(name))
+        return { projectXml, mediaXml, skipped: name };
+    const item = `<item><sound name="${xa(name)}" sound="${xa(dataURL)}" id="${rndId()}"/></item>`;
+    return { projectXml: injectAssetItem(projectXml, targetName, 'sounds', item), mediaXml, skipped: null };
+}
+
+/**
+ * Import a <script> or <scripts> into a sprite/stage.
+ * Snap! 11: scripts are DIRECT children of <scripts>, never inside <list>.
+ * Each <script> MUST have x and y numeric attributes.
+ */
+export function importScriptXml(projectXml, mediaXml, targetName, xmlString) {
+    const trimmed = xmlString.trimStart();
+    const isContainer = trimmed.startsWith('<scripts');
+    if (!isContainer && !trimmed.startsWith('<script ') && !trimmed.startsWith('<script>'))
+        throw new Error('Expected <script> or <scripts>');
+
+    // Extract the script nodes to inject
+    let nodesToInject;
+    if (isContainer) {
+        // Strip outer <scripts> wrapper, keep inner content
+        nodesToInject = trimmed.replace(/^<scripts[^>]*>/, '').replace(/<\/scripts>\s*$/, '').trim();
+        if (!nodesToInject) return { projectXml, mediaXml };
+    } else {
+        let node = trimmed.trimEnd();
+        if (!node.match(/\bx="/)) node = node.replace('<script', '<script x="10"');
+        if (!node.match(/\by="/)) node = node.replace('<script', '<script y="10"');
+        nodesToInject = node;
+    }
+
+    const start    = findTargetStart(projectXml, targetName);
+    const tag      = targetTag(targetName);
+    const blockXml = extractTag(projectXml.slice(start), tag);
+    if (!blockXml) throw new Error(`Cannot extract <${tag}> for "${targetName}"`);
+
+    const scriptsXml = extractTag(blockXml, 'scripts');
+    let newBlock;
+    if (scriptsXml) {
+        // Insert before </scripts>
+        const newScripts = scriptsXml.replace('</scripts>', nodesToInject + '</scripts>');
+        newBlock = blockXml.replace(scriptsXml, newScripts);
+    } else {
+        newBlock = blockXml.replace(`</${tag}>`, `<scripts>${nodesToInject}</scripts></${tag}>`);
+    }
+
+    return {
+        projectXml: projectXml.slice(0, start) + newBlock + projectXml.slice(start + blockXml.length),
+        mediaXml,
+    };
+}
+
+// ── XML helpers ───────────────────────────────────────────────────────────────
+
+/**
+ * Extract the first complete occurrence of <tag ...>...</tag> from xml.
+ * Handles nesting and self-closing tags.
+ */
 export function extractTag(xml, tag) {
-    const re    = new RegExp(`<${tag}[\\s>]`);
-    const start = xml ? xml.search(re) : -1;
-    if (start === -1) return null;
-    let depth = 0, i = start;
+    if (!xml) return null;
+    // Match opening tag (with attributes or self-closing)
+    const startIdx = xml.search(new RegExp(`<${tag}(\\s|>|/)`));
+    if (startIdx === -1) return null;
+    let depth = 0, i = startIdx;
     while (i < xml.length) {
-        if (xml[i] === '<') {
-            if (xml.startsWith(`</${tag}>`, i)) {
-                if (depth === 1) return xml.slice(start, i + tag.length + 3);
-                depth--;
-            } else if (xml.startsWith(`<${tag}`, i) && /[\s>]/.test(xml[i + tag.length + 1] || '')) {
-                const ca = xml.indexOf('>', i);
-                if (xml[ca - 1] === '/') { if (depth === 0) return xml.slice(i, ca + 1); }
-                else depth++;
+        if (xml[i] !== '<') { i++; continue; }
+        // Closing tag </tag>
+        if (xml.startsWith(`</${tag}>`, i)) {
+            depth--;
+            if (depth === 0) return xml.slice(startIdx, i + tag.length + 3);
+            i++;
+            continue;
+        }
+        // Opening tag <tag or <tagName (must be exact tag name)
+        if (xml.startsWith(`<${tag}`, i)) {
+            const afterTag = xml[i + tag.length + 1] ?? '';
+            if (/[\s>/]/.test(afterTag)) {
+                // Self-closing?
+                const closeAngle = xml.indexOf('>', i);
+                if (closeAngle === -1) { i++; continue; }
+                if (xml[closeAngle - 1] === '/') {
+                    if (depth === 0) return xml.slice(i, closeAngle + 1);
+                    // self-closing nested — ignore, don't change depth
+                    i = closeAngle + 1;
+                    continue;
+                }
+                depth++;
             }
         }
         i++;
@@ -255,50 +364,42 @@ export function extractTag(xml, tag) {
 }
 
 function extractAllTags(xml, tag) {
-    const results = []; let rem = xml;
-    while (true) { const c = extractTag(rem, tag); if (!c) break; results.push(c); rem = rem.slice(rem.indexOf(c) + c.length); }
-    return results;
+    const out = []; let rem = xml;
+    for (;;) {
+        const c = extractTag(rem, tag);
+        if (!c) break;
+        out.push(c);
+        rem = rem.slice(rem.indexOf(c) + c.length);
+    }
+    return out;
 }
 
-function injectIntoSprite(projectXml, spriteName, section, xml) {
-    const re = new RegExp(`<sprite[^>]+name="${escRe(spriteName)}"[^>]*>`);
-    const m  = projectXml.match(re);
-    if (!m) throw new Error(`Sprite "${spriteName}" not found`);
-    const start     = projectXml.indexOf(m[0]);
-    const spriteXml = extractTag(projectXml.slice(start), 'sprite');
-    if (!spriteXml) throw new Error(`Cannot extract sprite "${spriteName}"`);
-    const secXml  = extractTag(spriteXml, section);
-    if (!secXml)   throw new Error(`<${section}> not found in "${spriteName}"`);
-    const listXml = extractTag(secXml, 'list');
-    if (!listXml)  throw new Error(`<list> not found in <${section}>`);
-    const newSpr = spriteXml.replace(secXml, secXml.replace(listXml, listXml.replace('</list>', xml + '</list>')));
-    return projectXml.slice(0, start) + newSpr + projectXml.slice(start + spriteXml.length);
+function xmlAttrAll(xml, tag, attr) {
+    return [...xml.matchAll(new RegExp(`<${tag}[^>]+${attr}="([^"]+)"`, 'g'))].map(m => m[1]);
 }
 
-// ─── Misc helpers ─────────────────────────────────────────────────────────────
-async function fileToDataURL(file) {
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
+async function readFile(file) {
     const dataURL = await new Promise((res, rej) => {
-        const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file);
+        const r = new FileReader();
+        r.onload = () => res(r.result);
+        r.onerror = rej;
+        r.readAsDataURL(file);
     });
     return { dataURL, name: file.name.replace(/\.[^.]+$/, '') };
 }
 
 async function sha512(str) {
-    const buf  = new TextEncoder().encode(str);
-    const hash = await crypto.subtle.digest('SHA-512', buf);
-    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+    const buf = new TextEncoder().encode(str);
+    const h   = await crypto.subtle.digest('SHA-512', buf);
+    return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
 
 function enc(s)   { return encodeURIComponent(s); }
-function esc(s)   { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-function rndId()  { return Math.floor(Math.random() * 9e6 + 1e6).toString(); }
+function xa(s)    { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+function rndId()  { return String(Math.floor(Math.random()*9e6+1e6)); }
 function assertLoggedIn() { if (!state.username) throw new Error('Not logged in'); }
-function uniqueName(base, existing) {
-    if (!existing.includes(base)) return base;
-    let i = 2; while (existing.includes(`${base} (${i})`)) i++; return `${base} (${i})`;
-}
 
-const BLANK_THUMBNAIL =
-    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ' +
-    'AAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';

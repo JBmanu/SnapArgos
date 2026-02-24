@@ -174,11 +174,19 @@ app.post('/snap-api/project/:name', async (req, res) => {
 
     try {
         // cloud.js → saveProject(): POST /projects/{username}/{name}
+        const body = req.body;
+        // Debug: log what we're saving
+        const strip = s => s ? s.replace(/(image|sound)="data:[^"]{0,60}[^"]*"/g, '$1="data:...[BASE64,len="+s.match(/(image|sound)="(data:[^"]*)"/)?.[2]?.length+"]"') : null;
+        const xmlSnippet = body.xml ? body.xml.slice(0, 300) : 'NO XML';
+        const costumeCount = (body.xml || '').match(/<costume/g)?.length || 0;
+        const soundCount   = (body.xml || '').match(/<sound[^s]/g)?.length || 0;
+        console.log(`[snap-api] SAVING "${req.params.name}": xml=${body.xml?.length}B media=${body.media?.length}B costumes=${costumeCount} sounds=${soundCount}`);
+        console.log(`[snap-api] XML start: ${xmlSnippet.replace(/\n/g,' ')}`);
         const result = await snapRequest(jar, 'POST',
             `/projects/${encodeURIComponent(jar.username)}/${encodeURIComponent(req.params.name)}`,
-            { body: req.body }
+            { body }
         );
-        console.log(`[snap-api] saved "${req.params.name}" (sid: ${req.sid.slice(0,8)})`);
+        console.log(`[snap-api] saved "${req.params.name}" OK (sid: ${req.sid.slice(0,8)})`);
         res.json({ ok: true, message: result });
     } catch(e) {
         console.error('[snap-api] save error:', e.message);
@@ -186,7 +194,89 @@ app.post('/snap-api/project/:name', async (req, res) => {
     }
 });
 
+// ─── DEBUG: show raw + parsed XML ────────────────────────────────────────────
+app.get('/snap-api/debug-project/:name', async (req, res) => {
+    const jar = getJar(req.sid);
+    if (!jar.username) return res.status(401).json({ error: 'Not logged in' });
+    try {
+        const raw = await snapRequest(jar, 'GET',
+            `/projects/${encodeURIComponent(jar.username)}/${encodeURIComponent(req.params.name)}`,
+            { wantsRaw: true }
+        );
+        // Parse like snap-api.js does
+        const extractTag = (xml, tag) => {
+            const start = xml.search(new RegExp(`<${tag}[\\s>/]`));
+            if (start === -1) return null;
+            let depth = 0, i = start;
+            while (i < xml.length) {
+                if (xml[i] === '<') {
+                    if (xml.startsWith(`</${tag}>`, i)) { if (--depth === 0) return xml.slice(start, i+tag.length+3); }
+                    else if (xml.startsWith(`<${tag}`, i) && /[\s>/]/.test(xml[i+tag.length+1]||'')) {
+                        const ca = xml.indexOf('>', i);
+                        if (xml[ca-1] === '/') { if (depth===0) return xml.slice(i,ca+1); }
+                        else depth++;
+                    }
+                }
+                i++;
+            }
+            return null;
+        };
+        const projectXml = extractTag(raw, 'project');
+        const mediaXml   = extractTag(raw, 'media');
+        
+        // Strip base64 for readability
+        const strip = s => s ? s.replace(/(image|sound|pentrails|thumbnail)="data:[^"]{0,80}[^"]*"/g, '$1="data:...[BASE64]..."') : null;
+        
+        res.json({
+            rawLength: raw.length,
+            rawStart: raw.slice(0, 200),
+            hasSnapdata: raw.includes('<snapdata'),
+            hasMedia: raw.includes('<media'),
+            hasProject: raw.includes('<project'),
+            projectXmlLength: projectXml ? projectXml.length : 0,
+            mediaXmlLength: mediaXml ? mediaXml.length : 0,
+            projectXmlStart: strip(projectXml ? projectXml.slice(0, 500) : null),
+            mediaXmlFull: strip(mediaXml),
+            spriteNames: [...raw.matchAll(/<sprite[^>]+name="([^"]+)"/g)].map(m=>m[1]),
+            stageStart: raw.slice(raw.search(/<stage[\s]/), raw.search(/<stage[\s]/)+300).replace(/(image|pentrails)="data:[^"]{0,30}[^"]*"/g,'$1="..."'),
+        });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`\n  ✦ Snap! Uploader  →  http://localhost:${PORT}`);
     console.log(`  ✦ API bridge      →  /snap-api/* → ${SNAP_BASE}\n`);
+});
+
+// ─── DEBUG: preview what will be saved ────────────────────────────────────────
+app.get('/snap-api/debug-save/:name', async (req, res) => {
+    const jar = getJar(req.sid);
+    if (!jar.username) return res.status(401).json({ error: 'Not logged in' });
+    try {
+        const xml = await snapRequest(jar, 'GET',
+            `/projects/${encodeURIComponent(jar.username)}/${encodeURIComponent(req.params.name)}`,
+            { wantsRaw: true }
+        );
+        const projectXml = extractTag(xml, 'project');
+        const mediaXml   = extractTag(xml, 'media');
+        const strip = s => s ? s.replace(/(image|sound|thumbnail)="data:[^"]+"/g, '$1="data:...[BASE64]"') : null;
+        res.json({
+            rawLength: xml.length,
+            hasSnapdata: xml.includes('<snapdata'),
+            hasProject: xml.includes('<project'),
+            hasMedia: xml.includes('<media'),
+            projectLength: projectXml?.length,
+            mediaLength: mediaXml?.length,
+            projectStart: projectXml ? strip(projectXml.slice(0, 400)) : null,
+            mediaContent: mediaXml ? strip(mediaXml.slice(0, 400)) : null,
+            costumeCount: (xml.match(/<costume/g) || []).length,
+            soundCount: (xml.match(/<sound[^s]/g) || []).length,
+            listStructAtomic: (xml.match(/struct="atomic"/g) || []).length,
+            spritesSelect: xml.match(/<sprites select="([^"]+)"/)?.[1],
+        });
+    } catch(e) {
+        res.status(500).json({ error: e.message });
+    }
 });

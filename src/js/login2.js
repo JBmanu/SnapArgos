@@ -295,7 +295,7 @@ function addNewSprite(projectXml, spriteName) {
  * The <media> section is left unchanged (it is used for incremental upload,
  * which Snap! currently has disabled anyway — see buildProjectRequest comment).
  */
-function uploadImageToSprite(projectXml, mediaXml, spriteName, filePath) {
+export function uploadImageToSprite(projectXml, mediaXml, spriteName, filePath) {
     const fileBuffer = fs.readFileSync(filePath);
     const fileName = path.basename(filePath);
     const ext = path.extname(filePath).toLowerCase().slice(1);
