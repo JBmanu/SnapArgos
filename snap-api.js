@@ -258,14 +258,14 @@ function injectAssetItem(projectXml, targetName, section, itemXml) {
 
 export async function uploadImageToSprite(projectXml, mediaXml, targetName, file) {
     const { dataURL, name } = await readFile(file);
-    if (getAssetNames(projectXml, targetName, 'costume').includes(name))
+    const existing = getAssetNames(projectXml, targetName, 'costume');
+    if (existing.includes(name))
         return { projectXml, mediaXml, skipped: name };
-    const ext  = fileExt(file);
-    const mime = { png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg',
-                   gif:'image/gif', svg:'image/svg+xml' }[ext] || 'image/png';
-    // Re-encode with correct mime type (readFile uses generic data URL)
     const item = `<item><costume name="${xa(name)}" center-x="0" center-y="0" image="${xa(dataURL)}" id="${rndId()}"/></item>`;
-    return { projectXml: injectAssetItem(projectXml, targetName, 'costumes', item), mediaXml, skipped: null };
+    let newXml = injectAssetItem(projectXml, targetName, 'costumes', item);
+    // Set the sprite/stage to display the newly added costume (1-based index)
+    newXml = setActiveCostume(newXml, targetName, existing.length + 1);
+    return { projectXml: newXml, mediaXml, skipped: null };
 }
 
 export async function uploadAudioToSprite(projectXml, mediaXml, targetName, file) {
@@ -283,20 +283,34 @@ export async function uploadAudioToSprite(projectXml, mediaXml, targetName, file
  */
 export function importScriptXml(projectXml, mediaXml, targetName, xmlString) {
     const trimmed = xmlString.trimStart();
-    const isContainer = trimmed.startsWith('<scripts');
-    if (!isContainer && !trimmed.startsWith('<script ') && !trimmed.startsWith('<script>'))
+    const isScriptsContainer = trimmed.startsWith('<scripts');
+    const isScriptFile = trimmed.startsWith('<script ') || trimmed.startsWith('<script>');
+    if (!isScriptsContainer && !isScriptFile)
         throw new Error('Expected <script> or <scripts>');
 
     // Extract the script nodes to inject
     let nodesToInject;
-    if (isContainer) {
-        // Strip outer <scripts> wrapper, keep inner content
+    if (isScriptsContainer) {
+        // <scripts>...</scripts> container — strip outer wrapper, inject inner content
         nodesToInject = trimmed.replace(/^<scripts[^>]*>/, '').replace(/<\/scripts>\s*$/, '').trim();
         if (!nodesToInject) return { projectXml, mediaXml };
     } else {
+        // Single <script> node.
+        // Snap! 11 exports scripts wrapped in an outer: <script app="Snap!..." version="2">
+        //   <script>...</script>
+        // </script>
+        // We must strip the outer wrapper and inject only the inner <script> node(s).
         let node = trimmed.trimEnd();
-        if (!node.match(/\bx="/)) node = node.replace('<script', '<script x="10"');
-        if (!node.match(/\by="/)) node = node.replace('<script', '<script y="10"');
+        if (/^<script[^>]+app=/.test(node)) {
+            // It's a file-export wrapper — extract the inner content
+            node = node.replace(/^<script[^>]*>/, '').replace(/<\/script>\s*$/, '').trim();
+            if (!node) return { projectXml, mediaXml };
+        }
+        // Ensure x/y coordinates exist on each top-level <script> tag
+        node = node.replace(/^(<script(?![^>]*\bx=")[^>]*>)/m,
+                            (m) => m.replace('<script', '<script x="10"'));
+        node = node.replace(/^(<script(?![^>]*\by=")[^>]*>)/m,
+                            (m) => m.replace('<script', '<script y="10"'));
         nodesToInject = node;
     }
 
@@ -319,6 +333,24 @@ export function importScriptXml(projectXml, mediaXml, targetName, xmlString) {
         projectXml: projectXml.slice(0, start) + newBlock + projectXml.slice(start + blockXml.length),
         mediaXml,
     };
+}
+
+/**
+ * Update the costume="N" attribute on a sprite/stage tag so the newly added
+ * costume becomes the active (displayed) one immediately.
+ * N is 1-based: costume="1" = first costume, costume="0" = none.
+ */
+function setActiveCostume(projectXml, targetName, costumeIndex) {
+    // Update costume="N" attribute on the sprite/stage opening tag
+    if (targetName === 'Stage') {
+        return projectXml.replace(
+            /(<stage[^>]+costume=")(\d+)(")/,
+            `$1${costumeIndex}$3`
+        );
+    }
+    // For sprites: find the specific sprite's opening tag and update its costume attr
+    const spriteTagRe = new RegExp(`(<sprite[^>]+name="${escRe(targetName)}"[^>]*costume=")(\d+)(")`);
+    return projectXml.replace(spriteTagRe, `$1${costumeIndex}$3`);
 }
 
 // ── XML helpers ───────────────────────────────────────────────────────────────
@@ -402,4 +434,21 @@ function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 function rndId()  { return String(Math.floor(Math.random()*9e6+1e6)); }
 function assertLoggedIn() { if (!state.username) throw new Error('Not logged in'); }
 
+export const VERSION = '5';
+
+/**
+ * Download the modified projectXml as a local .xml file (wrapped in snapdata)
+ * so the user can load it directly in Snap! for testing.
+ */
+export function downloadProjectXml(projectName, projectXml, mediaXml) {
+    const snapdata = `<snapdata>${projectXml}${mediaXml}</snapdata>`;
+    const blob = new Blob([snapdata], { type: 'application/xml' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `${projectName}_modified.xml`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+ // bump when snap-api.js changes
 const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
