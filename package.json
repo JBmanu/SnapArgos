@@ -5,8 +5,8 @@
   "scripts": {
     "start": "npm run css:build && concurrently --names \"proxy,css\" --prefix-colors \"#ff6b35,#ffd166\" \"npm run proxy\" \"npm run css:watch\"",
     "proxy": "node proxy.js",
-    "css:build": "tailwindcss -i public/css/input.css -o ./dist/output.css --minify",
-    "css:watch": "tailwindcss -i public/css/input.css -o ./dist/output.css --watch",
+    "css:build": "tailwindcss -i src/css/input.css -o ./dist/output.css --minify",
+    "css:watch": "tailwindcss -i src/css/input.css -o ./dist/output.css --watch",
     "build": "npm run css:build"
   },
   "dependencies": {
