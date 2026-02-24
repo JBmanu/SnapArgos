@@ -211,14 +211,23 @@ function targetTag(targetName) {
 
 /**
  * Get existing asset names (costume/sound) for duplicate detection.
+ *
+ * IMPORTANT: must search only inside the DIRECT <costumes>/<sounds> section
+ * of the target — NOT in the whole block.
+ * For Stage, the full block includes all child sprites with their own costumes,
+ * which would give a wrong count and break the costumeIndex calculation.
  */
 function getAssetNames(projectXml, targetName, assetTag) {
     try {
-        const start   = findTargetStart(projectXml, targetName);
-        const tag     = targetTag(targetName);
+        const start    = findTargetStart(projectXml, targetName);
+        const tag      = targetTag(targetName);
         const blockXml = extractTag(projectXml.slice(start), tag);
         if (!blockXml) return [];
-        return [...blockXml.matchAll(new RegExp(`<${assetTag}[^>]+name="([^"]+)"`, 'g'))].map(m => m[1]);
+        // Extract only the direct section (costumes or sounds) of this target
+        const sectionName = assetTag === 'costume' ? 'costumes' : 'sounds';
+        const sectionXml  = extractTag(blockXml, sectionName);
+        if (!sectionXml) return [];
+        return [...sectionXml.matchAll(new RegExp(`<${assetTag}[^>]+name="([^"]+)"`, 'g'))].map(m => m[1]);
     } catch { return []; }
 }
 
@@ -339,18 +348,22 @@ export function importScriptXml(projectXml, mediaXml, targetName, xmlString) {
  * Update the costume="N" attribute on a sprite/stage tag so the newly added
  * costume becomes the active (displayed) one immediately.
  * N is 1-based: costume="1" = first costume, costume="0" = none.
+ *
+ * Uses a lookahead-based approach so the replacement is ORDER-INDEPENDENT:
+ * works regardless of whether `name` or `costume` come first in the tag.
  */
 function setActiveCostume(projectXml, targetName, costumeIndex) {
-    // Update costume="N" attribute on the sprite/stage opening tag
     if (targetName === 'Stage') {
-        return projectXml.replace(
-            /(<stage[^>]+costume=")(\d+)(")/,
-            `$1${costumeIndex}$3`
+        return projectXml.replace(/(<stage [^>]+>)/, tag =>
+            tag.replace(/\bcostume="\d+"/, `costume="${costumeIndex}"`)
         );
     }
-    // For sprites: find the specific sprite's opening tag and update its costume attr
-    const spriteTagRe = new RegExp(`(<sprite[^>]+name="${escRe(targetName)}"[^>]*costume=")(\d+)(")`);
-    return projectXml.replace(spriteTagRe, `$1${costumeIndex}$3`);
+    // Lookahead: find the <sprite> tag that has name="targetName",
+    // regardless of attribute order, then replace costume="N" inside it.
+    const tagRe = new RegExp(`<sprite (?=[^>]*name="${escRe(targetName)}"[^>]*>)[^>]+>`);
+    return projectXml.replace(tagRe, tag =>
+        tag.replace(/\bcostume="\d+"/, `costume="${costumeIndex}"`)
+    );
 }
 
 // ── XML helpers ───────────────────────────────────────────────────────────────
@@ -434,7 +447,7 @@ function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 function rndId()  { return String(Math.floor(Math.random()*9e6+1e6)); }
 function assertLoggedIn() { if (!state.username) throw new Error('Not logged in'); }
 
-export const VERSION = '5';
+export const VERSION = '7';
 
 /**
  * Download the modified projectXml as a local .xml file (wrapped in snapdata)
