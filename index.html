@@ -661,6 +661,11 @@ function updateSelPanel() {
             const i = selectedSprites.findIndex(x=>x.projectName===s.projectName&&x.spriteName===s.spriteName);
             if (i>=0) selectedSprites.splice(i,1);
             if (!selectedSprites.length) { selMode='none'; renderProjList(); }
+            // Re-render sprite panel so the deselected row loses its 'sel' highlight
+            if (spritePanelProj) {
+                const cache = projectCache.get(spritePanelProj);
+                if (cache) renderSprList(getSpritesFromXml(cache.projectXml), spritePanelProj);
+            }
             updateBanner(); updateSelPanel(); updateDropHint(); updateDetectBox(); checkUploadReady();
         }));
     }
