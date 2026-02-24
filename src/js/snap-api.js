@@ -158,33 +158,6 @@ export function importCustomBlocks(projectXml, mediaXml, xmlString) {
     return { projectXml: projectXml.replace('</blocks>', toAdd + '</blocks>'), mediaXml, skipped };
 }
 
-// ── Stage/Sprite asset injection ─────────────────────────────────────────────
-//
-// Snap! 11 XML structure (confirmed from real project XML):
-//
-//   <project>
-//     <scenes><scene>
-//       <blocks>...</blocks>          ← global custom blocks
-//       <stage name="Stage" ...>
-//         <costumes><list id="N">...</list></costumes>
-//         <sounds><list id="N">...</list></sounds>
-//         <scripts>...</scripts>
-//         <sprites select="1">
-//           <sprite name="Sprite1" ...>
-//             <costumes><list id="N">...</list></costumes>
-//             <sounds><list id="N">...</list></sounds>
-//             <scripts><script x="N" y="N">...</script></scripts>
-//           </sprite>
-//         </sprites>
-//       </stage>
-//     </scene></scenes>
-//   </project>
-//
-// Images/sounds are stored INLINE (base64 in the image/sound attribute).
-// No separate <media> section in Snap! 11.
-// Scripts are DIRECT children of <scripts> — never inside <list>.
-// Empty lists may have struct="atomic": <list struct="atomic" id="N"></list>
-
 /**
  * Find the start index of the target block in projectXml.
  * For 'Stage': finds <stage ...> (NOT a sprite)
@@ -254,9 +227,6 @@ function injectAssetItem(projectXml, targetName, section, itemXml) {
     const listXml = extractTag(sectionXml, 'list');
     if (!listXml) throw new Error(`<list> not found in <${section}> of "${targetName}"`);
 
-    // Inject before </list>.
-    // CRITICAL: Remove struct="atomic" if present — it marks an EMPTY list in Snap! 11.
-    // Snap! ignores items inside a struct="atomic" list, so we must strip it.
     const cleanList  = listXml.replace(/\s*struct="atomic"/, '');
     const newList    = cleanList.replace('</list>', itemXml + '</list>');
     const newSection = sectionXml.replace(listXml, newList);
@@ -304,18 +274,12 @@ export function importScriptXml(projectXml, mediaXml, targetName, xmlString) {
         nodesToInject = trimmed.replace(/^<scripts[^>]*>/, '').replace(/<\/scripts>\s*$/, '').trim();
         if (!nodesToInject) return { projectXml, mediaXml };
     } else {
-        // Single <script> node.
-        // Snap! 11 exports scripts wrapped in an outer: <script app="Snap!..." version="2">
-        //   <script>...</script>
-        // </script>
-        // We must strip the outer wrapper and inject only the inner <script> node(s).
         let node = trimmed.trimEnd();
         if (/^<script[^>]+app=/.test(node)) {
             // It's a file-export wrapper — extract the inner content
             node = node.replace(/^<script[^>]*>/, '').replace(/<\/script>\s*$/, '').trim();
             if (!node) return { projectXml, mediaXml };
         }
-        // Ensure x/y coordinates exist on each top-level <script> tag
         node = node.replace(/^(<script(?![^>]*\bx=")[^>]*>)/m,
                             (m) => m.replace('<script', '<script x="10"'));
         node = node.replace(/^(<script(?![^>]*\by=")[^>]*>)/m,
@@ -331,7 +295,6 @@ export function importScriptXml(projectXml, mediaXml, targetName, xmlString) {
     const scriptsXml = extractTag(blockXml, 'scripts');
     let newBlock;
     if (scriptsXml) {
-        // Insert before </scripts>
         const newScripts = scriptsXml.replace('</scripts>', nodesToInject + '</scripts>');
         newBlock = blockXml.replace(scriptsXml, newScripts);
     } else {
@@ -358,8 +321,6 @@ function setActiveCostume(projectXml, targetName, costumeIndex) {
             tag.replace(/\bcostume="\d+"/, `costume="${costumeIndex}"`)
         );
     }
-    // Lookahead: find the <sprite> tag that has name="targetName",
-    // regardless of attribute order, then replace costume="N" inside it.
     const tagRe = new RegExp(`<sprite (?=[^>]*name="${escRe(targetName)}"[^>]*>)[^>]+>`);
     return projectXml.replace(tagRe, tag =>
         tag.replace(/\bcostume="\d+"/, `costume="${costumeIndex}"`)
@@ -446,8 +407,6 @@ function xa(s)    { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;'
 function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 function rndId()  { return String(Math.floor(Math.random()*9e6+1e6)); }
 function assertLoggedIn() { if (!state.username) throw new Error('Not logged in'); }
-
-export const VERSION = '7';
 
 /**
  * Download the modified projectXml as a local .xml file (wrapped in snapdata)
