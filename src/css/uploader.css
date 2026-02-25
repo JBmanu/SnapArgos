@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: #16181f; }
+    ::-webkit-scrollbar-thumb { background: #2a2d38; border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: #ff6b35; }
+}
+
+@layer components {
+    .card {
+        @apply bg-snap-surface border border-snap-border rounded-xl p-5;
+    }
+    .label {
+        @apply text-xs font-display uppercase tracking-widest text-snap-muted mb-1.5 block;
+    }
+    .input {
+        @apply w-full bg-snap-bg border border-snap-border rounded-lg px-3 py-2.5
+        text-snap-text font-body text-sm placeholder-snap-muted/50
+        focus:outline-none focus:border-snap-accent focus:ring-1 focus:ring-snap-accent/30
+        transition-all duration-200;
+    }
+    .btn-primary {
+        @apply bg-snap-accent hover:bg-snap-accent/90 text-white font-display text-sm
+        px-5 py-2.5 rounded-lg transition-all duration-200 active:scale-95
+        disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100;
+    }
+    .btn-ghost {
+        @apply border border-snap-border hover:border-snap-accent/60 text-snap-muted
+        hover:text-snap-text font-display text-xs px-3 py-1.5 rounded-lg
+        transition-all duration-200 active:scale-95;
+    }
+    .project-item {
+        @apply px-3 py-2 rounded-lg cursor-pointer text-sm font-body text-snap-muted
+        hover:bg-snap-border/40 hover:text-snap-text transition-all duration-150
+        border border-transparent;
+    }
+    .project-item.active {
+        @apply bg-snap-accent/10 border-snap-accent/30 text-snap-accent;
+    }
+    .sprite-item {
+        @apply flex items-center gap-2 px-3 py-1.5 rounded-md cursor-pointer text-sm
+        font-body text-snap-muted hover:text-snap-text transition-colors duration-150;
+    }
+    .sprite-item.active {
+        @apply text-snap-accent2;
+    }
+    .drop-zone {
+        @apply border-2 border-dashed border-snap-border rounded-xl p-8 text-center
+        cursor-pointer transition-all duration-200
+        hover:border-snap-accent/50 hover:bg-snap-accent/5;
+    }
+    .drop-zone.drag-over {
+        @apply border-snap-accent bg-snap-accent/10 scale-[1.01];
+    }
+    .file-chip {
+        @apply flex items-center gap-2 bg-snap-bg border border-snap-border
+        rounded-lg px-3 py-1.5 text-xs font-display text-snap-text;
+    }
+    .radio-card {
+        @apply flex items-center gap-3 px-4 py-3 rounded-xl border border-snap-border
+        cursor-pointer transition-all duration-200 hover:border-snap-accent/40;
+    }
+    .radio-card.selected {
+        @apply border-snap-accent/60;
+        background-color: rgb(255 107 53 / 0.08);
+    }
+    .tag {
+        @apply inline-flex items-center px-2 py-0.5 rounded-md text-xs font-display;
+    }
+}

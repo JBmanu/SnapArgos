@@ -1,7 +1,7 @@
 {
-  "name": "snap-uploader",
+  "name": "snap-argos",
   "version": "1.0.0",
-  "description": "Snap! project asset uploader",
+  "description": "Snap! extension for Argos",
   "scripts": {
     "start": "npm run css:build && concurrently --names \"proxy,css\" --prefix-colors \"#ff6b35,#ffd166\" \"npm run proxy\" \"npm run css:watch\"",
     "proxy": "node proxy.js",
