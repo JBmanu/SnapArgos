@@ -36,10 +36,11 @@ jobs:
 
       - name: Prepare _site folder
         run: |
-          mkdir -p _site/dist
-          cp index.html     _site/
-          cp snap-api.js    _site/
-          cp dist/output.css _site/dist/
+          mkdir -p _site/dist _site/src/css _site/src/js
+          cp index.html          _site/
+          cp dist/output.css     _site/dist/
+          cp src/css/app.css     _site/src/css/
+          cp src/js/snap-api.js  _site/src/js/
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
