@@ -7,7 +7,7 @@ const IS_LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
 // const PROD_BASE = 'https://corsproxy.io/?https://snap.berkeley.edu/api/v1';
 const PROD_BASE = 'https://snap-argos.buizomanuel.workers.dev/snap-api';
 
-export const state = {username: null, sessionId: null, cookie: null};
+export const state = {username: null, sessionId: null, cookies: {}};
 
 // ── Core HTTP ─────────────────────────────────────────────────────────────────
 async function req(method, path, {body, wantsRaw = false} = {}) {
@@ -15,8 +15,10 @@ async function req(method, path, {body, wantsRaw = false} = {}) {
     const url = IS_LOCAL ? `/snap-api${path}` : PROD_BASE + path;
 
     if (IS_LOCAL && state.sessionId) headers['x-session-id'] = state.sessionId;
-    // if (!IS_LOCAL && state.cookie) headers['Cookie'] = state.cookie;
-    if (!IS_LOCAL && state.cookie) headers['x-snap-cookie'] = state.cookie;
+
+    // Send all accumulated cookies to the worker
+    const cookieStr = Object.entries(state.cookies).map(([k, v]) => `${k}=${v}`).join('; ');
+    if (!IS_LOCAL && cookieStr) headers['x-snap-cookie'] = cookieStr;
 
     const res = await fetch(url, {
         method, headers,
@@ -27,13 +29,17 @@ async function req(method, path, {body, wantsRaw = false} = {}) {
         const s = res.headers.get('x-session-id');
         if (s) state.sessionId = s;
     } else {
+        // Merge all cookies from the worker response into our jar
         const s = res.headers.get('x-snap-set-cookie');
-        if (s) state.cookie = s.split(';')[0];
+        if (s) {
+            for (const pair of s.split(';')) {
+                const eq = pair.indexOf('=');
+                if (eq > 0) {
+                    state.cookies[pair.slice(0, eq).trim()] = pair.slice(eq + 1).trim();
+                }
+            }
+        }
     }
-    // else {
-    //     const s = res.headers.get('set-cookie');
-    //     if (s) state.cookie = s.split(';')[0];
-    // }
     const text = await res.text();
     if (!text) throw new Error(`Empty response ${method} ${path} (${res.status})`);
     if (!wantsRaw || text.startsWith('{"error')) {
@@ -189,11 +195,6 @@ export function importCustomBlocks(projectXml, mediaXml, xmlString) {
     return {projectXml: projectXml.replace('</blocks>', toAdd + '</blocks>'), mediaXml, skipped};
 }
 
-/**
- * Find the start index of the target block in projectXml.
- * For 'Stage': finds <stage ...> (NOT a sprite)
- * For others:  finds <sprite name="NAME" ...>
- */
 function findTargetStart(projectXml, targetName) {
     if (targetName === 'Stage') {
         const m = projectXml.match(/<stage[\s]/);
@@ -206,28 +207,16 @@ function findTargetStart(projectXml, targetName) {
     return projectXml.indexOf(m[0]);
 }
 
-/**
- * Extract the outer tag name for the target ('stage' or 'sprite').
- */
 function targetTag(targetName) {
     return targetName === 'Stage' ? 'stage' : 'sprite';
 }
 
-/**
- * Get existing asset names (costume/sound) for duplicate detection.
- *
- * IMPORTANT: must search only inside the DIRECT <costumes>/<sounds> section
- * of the target — NOT in the whole block.
- * For Stage, the full block includes all child sprites with their own costumes,
- * which would give a wrong count and break the costumeIndex calculation.
- */
 function getAssetNames(projectXml, targetName, assetTag) {
     try {
         const start = findTargetStart(projectXml, targetName);
         const tag = targetTag(targetName);
         const blockXml = extractTag(projectXml.slice(start), tag);
         if (!blockXml) return [];
-        // Extract only the direct section (costumes or sounds) of this target
         const sectionName = assetTag === 'costume' ? 'costumes' : 'sounds';
         const sectionXml = extractTag(blockXml, sectionName);
         if (!sectionXml) return [];
@@ -237,17 +226,6 @@ function getAssetNames(projectXml, targetName, assetTag) {
     }
 }
 
-/**
- * Inject an asset <item> node into the <list> inside costumes/sounds of a target.
- * Works for both Stage (<stage>) and sprites (<sprite>).
- *
- * Uses the same approach as the working snap_headless.js:
- * - Extract sprite/stage block
- * - Extract section (costumes/sounds) within it
- * - Extract list within section
- * - String-replace list to inject item before </list>
- * - Reconstruct projectXml
- */
 function injectAssetItem(projectXml, targetName, section, itemXml) {
     const start = findTargetStart(projectXml, targetName);
     const tag = targetTag(targetName);
@@ -275,7 +253,6 @@ export async function uploadImageToSprite(projectXml, mediaXml, targetName, file
         return {projectXml, mediaXml, skipped: name};
     const item = `<item><costume name="${xa(name)}" center-x="0" center-y="0" image="${xa(dataURL)}" id="${rndId()}"/></item>`;
     let newXml = injectAssetItem(projectXml, targetName, 'costumes', item);
-    // Set the sprite/stage to display the newly added costume (1-based index)
     newXml = setActiveCostume(newXml, targetName, existing.length + 1);
     return {projectXml: newXml, mediaXml, skipped: null};
 }
@@ -288,11 +265,6 @@ export async function uploadAudioToSprite(projectXml, mediaXml, targetName, file
     return {projectXml: injectAssetItem(projectXml, targetName, 'sounds', item), mediaXml, skipped: null};
 }
 
-/**
- * Import a <script> or <scripts> into a sprite/stage.
- * Snap! 11: scripts are DIRECT children of <scripts>, never inside <list>.
- * Each <script> MUST have x and y numeric attributes.
- */
 export function importScriptXml(projectXml, mediaXml, targetName, xmlString) {
     const trimmed = xmlString.trimStart();
     const isScriptsContainer = trimmed.startsWith('<scripts');
@@ -300,16 +272,13 @@ export function importScriptXml(projectXml, mediaXml, targetName, xmlString) {
     if (!isScriptsContainer && !isScriptFile)
         throw new Error('Expected <script> or <scripts>');
 
-    // Extract the script nodes to inject
     let nodesToInject;
     if (isScriptsContainer) {
-        // <scripts>...</scripts> container — strip outer wrapper, inject inner content
         nodesToInject = trimmed.replace(/^<scripts[^>]*>/, '').replace(/<\/scripts>\s*$/, '').trim();
         if (!nodesToInject) return {projectXml, mediaXml};
     } else {
         let node = trimmed.trimEnd();
         if (/^<script[^>]+app=/.test(node)) {
-            // It's a file-export wrapper — extract the inner content
             node = node.replace(/^<script[^>]*>/, '').replace(/<\/script>\s*$/, '').trim();
             if (!node) return {projectXml, mediaXml};
         }
@@ -340,14 +309,6 @@ export function importScriptXml(projectXml, mediaXml, targetName, xmlString) {
     };
 }
 
-/**
- * Update the costume="N" attribute on a sprite/stage tag so the newly added
- * costume becomes the active (displayed) one immediately.
- * N is 1-based: costume="1" = first costume, costume="0" = none.
- *
- * Uses a lookahead-based approach so the replacement is ORDER-INDEPENDENT:
- * works regardless of whether `name` or `costume` come first in the tag.
- */
 function setActiveCostume(projectXml, targetName, costumeIndex) {
     if (targetName === 'Stage') {
         return projectXml.replace(/(<stage [^>]+>)/, tag =>
@@ -362,13 +323,8 @@ function setActiveCostume(projectXml, targetName, costumeIndex) {
 
 // ── XML helpers ───────────────────────────────────────────────────────────────
 
-/**
- * Extract the first complete occurrence of <tag ...>...</tag> from xml.
- * Handles nesting and self-closing tags.
- */
 export function extractTag(xml, tag) {
     if (!xml) return null;
-    // Match opening tag (with attributes or self-closing)
     const startIdx = xml.search(new RegExp(`<${tag}(\\s|>|/)`));
     if (startIdx === -1) return null;
     let depth = 0, i = startIdx;
@@ -377,18 +333,15 @@ export function extractTag(xml, tag) {
             i++;
             continue;
         }
-        // Closing tag </tag>
         if (xml.startsWith(`</${tag}>`, i)) {
             depth--;
             if (depth === 0) return xml.slice(startIdx, i + tag.length + 3);
             i++;
             continue;
         }
-        // Opening tag <tag or <tagName (must be exact tag name)
         if (xml.startsWith(`<${tag}`, i)) {
             const afterTag = xml[i + tag.length + 1] ?? '';
             if (/[\s>/]/.test(afterTag)) {
-                // Self-closing?
                 const closeAngle = xml.indexOf('>', i);
                 if (closeAngle === -1) {
                     i++;
@@ -396,7 +349,6 @@ export function extractTag(xml, tag) {
                 }
                 if (xml[closeAngle - 1] === '/') {
                     if (depth === 0) return xml.slice(i, closeAngle + 1);
-                    // self-closing nested — ignore, don't change depth
                     i = closeAngle + 1;
                     continue;
                 }
@@ -462,10 +414,6 @@ function assertLoggedIn() {
     if (!state.username) throw new Error('Not logged in');
 }
 
-/**
- * Download the modified projectXml as a local .xml file (wrapped in snapdata)
- * so the user can load it directly in Snap! for testing.
- */
 export function downloadProjectXml(projectName, projectXml, mediaXml) {
     const snapdata = `<snapdata>${projectXml}${mediaXml}</snapdata>`;
     const blob = new Blob([snapdata], {type: 'application/xml'});
@@ -477,5 +425,4 @@ export function downloadProjectXml(projectName, projectXml, mediaXml) {
     URL.revokeObjectURL(url);
 }
 
-// bump when snap-api.js changes
 const BLANK_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
