@@ -162,7 +162,7 @@ export function getSpritesFromXml(projectXml) {
     return list;
 }
 
-// ── XML mutations (unchanged) ─────────────────────────────────────────────────
+// ── XML mutations ─────────────────────────────────────────────────────────────
 export function importSpriteXml(projectXml, mediaXml, xmlString) {
     if (!xmlString.trimStart().startsWith('<sprites')) throw new Error('Expected <sprites>');
     const nodes = extractAllTags(xmlString, 'sprite');

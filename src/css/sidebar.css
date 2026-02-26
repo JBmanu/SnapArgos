@@ -1,0 +1,98 @@
+/* ═══════════════════════════════════════════════════════════════════
+   sidebar.css — Collapsible sidebar navigation (Tailwind)
+   ═══════════════════════════════════════════════════════════════════ */
+
+@layer components {
+
+  /* ── Sidebar container ─────────────────────────────────────────── */
+  .sidebar-nav {
+    @apply fixed top-0 left-0 bottom-0 z-[150]
+           bg-snap-surface border-r border-snap-border
+           flex flex-col overflow-hidden;
+    width: 220px;
+    transition: width .25s cubic-bezier(.4,0,.2,1);
+  }
+  body.sidebar-collapsed .sidebar-nav {
+    width: 58px;
+  }
+
+  /* ── Logo area ─────────────────────────────────────────────────── */
+  .sidebar-logo {
+    @apply flex items-center gap-2.5 px-4
+           border-b border-snap-border shrink-0;
+    height: 50px;
+  }
+  .logo-mark {
+    @apply w-7 h-7 min-w-[28px] bg-snap-accent rounded-[7px]
+           grid place-items-center
+           font-display text-[11px] text-white font-medium;
+  }
+  .logo-name {
+    @apply font-display text-[13px] text-snap-text tracking-wide font-medium
+           whitespace-nowrap;
+  }
+
+  /* ── Nav links ─────────────────────────────────────────────────── */
+  .sidebar-links {
+    @apply flex-1 p-3 flex flex-col gap-1;
+  }
+  .sidebar-link {
+    @apply flex items-center gap-2.5 px-3 py-2.5 rounded-lg
+           border border-transparent bg-transparent
+           text-snap-muted font-display text-xs
+           cursor-pointer whitespace-nowrap text-left w-full
+           transition-all duration-150;
+  }
+  .sidebar-link svg {
+    @apply w-[18px] h-[18px] min-w-[18px] shrink-0;
+  }
+  .sidebar-link:hover {
+    @apply text-snap-text;
+    background: rgba(255,255,255,.03);
+  }
+  .sidebar-link.active {
+    @apply text-snap-accent;
+    background: rgba(255,107,53,.08);
+    border-color: rgba(255,107,53,.2);
+  }
+
+  /* ── Labels: hide when collapsed ───────────────────────────────── */
+  .sidebar-label {
+    @apply opacity-100 overflow-hidden;
+    max-width: 160px;
+    transition: opacity .15s .05s, max-width .25s;
+  }
+  body.sidebar-collapsed .sidebar-label {
+    @apply opacity-0 pointer-events-none;
+    max-width: 0;
+    transition: opacity .1s, max-width .25s;
+  }
+
+  /* ── Toggle button ─────────────────────────────────────────────── */
+  .sidebar-toggle {
+    @apply flex items-center justify-center h-11
+           border-none border-t border-snap-border
+           bg-transparent text-snap-muted cursor-pointer shrink-0
+           transition-colors duration-150;
+  }
+  .sidebar-toggle:hover {
+    @apply text-snap-text;
+  }
+  .sidebar-toggle svg {
+    @apply w-4 h-4;
+    transition: transform .25s cubic-bezier(.4,0,.2,1);
+  }
+  body.sidebar-collapsed .sidebar-toggle svg {
+    transform: rotate(180deg);
+  }
+
+  /* ── Main wrapper offset ───────────────────────────────────────── */
+  .main-wrap {
+    @apply min-h-screen;
+    margin-left: 220px;
+    transition: margin-left .25s cubic-bezier(.4,0,.2,1);
+  }
+  body.sidebar-collapsed .main-wrap {
+    margin-left: 58px;
+  }
+}

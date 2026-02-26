@@ -1,0 +1,118 @@
+<!-- pages/uploader.html — Uploader page content -->
+<div class="uploader-page animate-fade-in">
+<div class="layout">
+  <!-- ═══ LEFT COLUMN ═══ -->
+  <div>
+
+    <!-- ① PROJECTS & SPRITES -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-head-left">
+          <div class="step-num">1</div>
+          <span class="card-title">Projects &amp; Sprites</span>
+        </div>
+        <span id="sel-summary" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)"></span>
+      </div>
+      <div class="card-body">
+        <div class="mode-banner" id="mode-banner">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <span id="mode-text">Select projects or sprites to define your upload target.</span>
+        </div>
+        <div class="three-col">
+          <div>
+            <label class="label">Projects</label>
+            <div class="list-box" id="project-list">
+              <div class="list-empty">Click Refresh<br/>to load</div>
+            </div>
+          </div>
+          <div>
+            <label class="label">Sprites / Stage <span id="spr-proj-lbl" style="color:var(--muted2);font-size:9px"></span></label>
+            <div class="list-box" id="sprite-list">
+              <div class="list-empty">Click a project<br/>to see sprites</div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+              <span class="label" style="margin-bottom:0">Selection</span>
+              <button class="btn" id="btn-clear-sel" style="font-size:9px;padding:2px 8px;opacity:.5;display:none">Clear all</button>
+            </div>
+            <div class="list-box" id="sel-list" style="padding:8px">
+              <div class="sel-empty-msg" id="sel-empty-msg">Nothing selected.<br/>Click projects<br/>or sprites.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② FILES + UPLOAD BUTTON -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-head-left">
+          <div class="step-num">2</div>
+          <span class="card-title">Files</span>
+        </div>
+        <span id="file-count-badge" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)"></span>
+      </div>
+      <div class="card-body">
+        <div id="drop-zone" class="drop-zone">
+          <svg class="drop-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+          </svg>
+          <div class="drop-text">Drop files or <span style="color:var(--accent);text-decoration:underline;cursor:pointer" id="browse-link">browse</span></div>
+          <div class="drop-sub" id="drop-hint">Select a target first</div>
+          <input id="file-input" type="file" style="display:none" multiple/>
+        </div>
+        <div id="file-list" style="margin-top:10px;display:flex;flex-direction:column;gap:5px"></div>
+        <div class="detect-box" id="detect-box" style="display:none"></div>
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+          <button class="btn primary" id="btn-upload" disabled>
+            <div class="spinner"></div>
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:15px;height:15px">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+            </svg>
+            <span id="btn-label">Upload to Snap!</span>
+          </button>
+          <button class="btn" id="btn-download-xml" disabled title="Download modified XML to test locally in Snap! before uploading" style="display:none">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:15px;height:15px">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Test XML
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end left column -->
+
+  <!-- ═══ RIGHT SIDEBAR (sticky log) ═══ -->
+  <div class="sidebar">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-head-left">
+          <div class="step-num">3</div>
+          <span class="card-title">Run</span>
+        </div>
+        <button class="btn" id="btn-clear-log" style="font-size:10px;padding:4px 10px">Clear</button>
+      </div>
+      <div class="card-body">
+        <div class="log" id="log-panel">
+          <div class="log-dim">// ready</div>
+        </div>
+        <div class="prog" id="prog-wrap">
+          <div class="prog-row">
+            <span id="prog-label">Uploading…</span>
+            <span id="prog-pct">0%</span>
+          </div>
+          <div class="prog-track"><div class="prog-fill" id="prog-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end layout -->
+</div>

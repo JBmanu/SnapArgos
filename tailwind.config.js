@@ -2,7 +2,6 @@
 module.exports = {
   content: [
     './index.html',
-    './*.js',
     './src/**/*.{js,css,html}',
   ],
   theme: {
@@ -15,10 +14,15 @@ module.exports = {
         snap: {
           bg:      '#0e0f14',
           surface: '#16181f',
+          surface2:'#1e2028',
           border:  '#2a2d38',
           accent:  '#ff6b35',
           accent2: '#ffd166',
+          green:   '#3ecf8e',
+          blue:    '#4d9fff',
+          purple:  '#a78bfa',
           muted:   '#6b7280',
+          muted2:  '#3a3f52',
           text:    '#e8eaf0',
         }
       },

@@ -1,0 +1,112 @@
+/* ═══════════════════════════════════════════════════════════════════
+   shell.css — Header, credential bar, page content (Tailwind)
+   ═══════════════════════════════════════════════════════════════════ */
+
+@layer components {
+
+  /* ── Header ────────────────────────────────────────────────────── */
+  .shell-header {
+    @apply sticky top-0 z-[100]
+           flex items-center justify-between
+           px-6 border-b border-snap-border
+           backdrop-blur-md;
+    height: 50px;
+    background: rgba(14,15,20,.92);
+  }
+  .header-left {
+    @apply flex items-center gap-2.5;
+  }
+  .page-title {
+    @apply font-display text-sm text-snap-text font-medium;
+  }
+  .env-pill {
+    @apply font-display text-[10px] px-2 py-0.5 rounded-full
+           bg-snap-surface text-snap-muted border border-snap-border;
+  }
+  .env-pill.prod {
+    @apply text-snap-accent;
+    background: rgba(255,107,53,.12);
+    border-color: rgba(255,107,53,.3);
+  }
+  .session-pill {
+    @apply hidden items-center gap-1.5 font-display text-[11px] text-snap-muted;
+  }
+  .session-pill.active {
+    @apply flex;
+  }
+  .pulse-dot {
+    @apply w-1.5 h-1.5 rounded-full animate-pulse-dot;
+    background: #3ecf8e;
+  }
+
+  /* ── Credential bar ────────────────────────────────────────────── */
+  .cred-bar {
+    @apply border-b border-snap-border bg-snap-surface;
+    padding: 16px 24px;
+  }
+  .cred-bar-inner {
+    @apply max-w-[920px];
+  }
+  .cred-fields {
+    @apply grid gap-3 items-end;
+    grid-template-columns: 1fr 1fr auto;
+  }
+  .cred-action {
+    @apply pb-px;
+  }
+
+  /* ── Credential status ─────────────────────────────────────────── */
+  .cred-status {
+    @apply flex items-center gap-[7px] mt-2.5
+           font-display text-[11px] rounded-lg
+           border border-snap-border text-snap-muted
+           transition-all duration-200;
+    padding: 8px 12px;
+    background: #1e2028;
+  }
+  .cred-status svg,
+  .cred-status .inline-spin {
+    @apply shrink-0 w-[13px] h-[13px];
+  }
+  .cred-status.ok {
+    color: #3ecf8e;
+    border-color: rgba(62,207,142,.3);
+    background: rgba(62,207,142,.06);
+  }
+  .cred-status.warn {
+    @apply text-snap-accent2;
+    border-color: rgba(255,209,102,.3);
+    background: rgba(255,209,102,.06);
+  }
+  .cred-status.err {
+    @apply text-red-400;
+    border-color: rgba(248,113,113,.3);
+    background: rgba(248,113,113,.06);
+  }
+  .cred-status.loading {
+    color: #4d9fff;
+    border-color: rgba(77,159,255,.3);
+    background: rgba(77,159,255,.06);
+  }
+
+  /* ── Page content area ─────────────────────────────────────────── */
+  .page-content {
+    @apply p-6 pb-10;
+  }
+
+  /* ── Empty page placeholder ────────────────────────────────────── */
+  .empty-page {
+    @apply flex flex-col items-center justify-center text-center;
+    min-height: 50vh;
+  }
+  .empty-icon {
+    @apply w-12 h-12 mb-4;
+    color: #3a3f52;
+  }
+  .empty-title {
+    @apply font-display text-xl text-snap-text font-medium mb-2;
+  }
+  .empty-sub {
+    @apply font-display text-xs text-snap-muted leading-relaxed max-w-[360px];
+  }
+}
