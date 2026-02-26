@@ -13,12 +13,16 @@ function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 export function initOverview() {
     console.log('[overview] init');
 
-    // Render progetti se già caricati
+    // Render projects if already loaded
     if (appState.projects.length) renderProjects(appState.projects);
 
-    // Ascolta nuovi caricamenti
+    // On new load (including credential refresh): reset all columns then re-render
     if (_projectsHandler) bus.off('projects-loaded', _projectsHandler);
-    _projectsHandler = (projects) => renderProjects(projects);
+    _projectsHandler = (projects) => {
+        resetSprites();
+        clearAssets();
+        renderProjects(projects);
+    };
     bus.on('projects-loaded', _projectsHandler);
 }
 
@@ -126,6 +130,14 @@ function onSpriteClick(sprite, projData) {
 }
 
 // ═══ COL 3: ASSETS (costumi + suoni) ═════════════════════════════════════════
+function resetSprites() {
+    const el = $('ov-sprite-list');
+    const badge = $('ov-sprite-count');
+    if (!el) return;
+    if (badge) badge.textContent = '';
+    el.innerHTML = `<div class="ov-empty-state"><span>Select a project</span></div>`;
+}
+
 function clearAssets() {
     const el = $('ov-asset-list');
     const badge = $('ov-asset-count');
