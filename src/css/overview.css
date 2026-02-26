@@ -173,8 +173,25 @@
     font-family: 'Syne', sans-serif;
   }
   .ov-asset-detail {
-    @apply font-display text-[10px] mt-px;
+    @apply font-display text-[10px] mt-px flex items-center gap-1 flex-wrap;
     color: #3a3f52;
+  }
+
+  /* Owner / ref / media inline badges */
+  .ov-owner-tag, .ov-ref-tag, .ov-media-tag {
+    @apply inline-block font-display text-[9px] px-1 py-px rounded leading-none;
+  }
+  .ov-owner-tag {
+    background: rgba(139,92,246,.15);
+    color: #a78bfa;
+  }
+  .ov-ref-tag {
+    background: rgba(251,191,36,.12);
+    color: #fbbf24;
+  }
+  .ov-media-tag {
+    background: rgba(77,159,255,.12);
+    color: #4d9fff;
   }
 
   /* Index badge */
