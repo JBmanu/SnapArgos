@@ -256,34 +256,4 @@
   .ov-loading {
     @apply flex items-center justify-center h-full p-8;
   }
-
-  /* ── Debug panel ────────────────────────────────────────────────── */
-  .ov-debug-panel {
-    margin: 8px;
-    border-radius: 8px;
-    border: 1px solid rgba(251,191,36,.35);
-    background: rgba(251,191,36,.05);
-    overflow: hidden;
-  }
-  .ov-debug-title {
-    padding: 5px 10px;
-    font-family: 'Syne', sans-serif;
-    font-size: 11px;
-    font-weight: 600;
-    color: #fbbf24;
-    border-bottom: 1px solid rgba(251,191,36,.2);
-  }
-  .ov-debug-pre {
-    margin: 0;
-    padding: 8px 10px;
-    font-family: 'JetBrains Mono', 'Fira Mono', monospace;
-    font-size: 10px;
-    line-height: 1.55;
-    color: #d1d5db;
-    white-space: pre-wrap;
-    word-break: break-all;
-    overflow-x: auto;
-    max-height: 420px;
-    overflow-y: auto;
-  }
 }

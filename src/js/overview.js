@@ -237,7 +237,6 @@ function decodeEntities(s) {
  * kept them inline or moved them to <media>.
  */
 function buildMediaMap(mediaXml, projectXml) {
-    const t0 = performance.now();
     const map = {};       // id → { type, data }
     const nameMap = {};   // name → { type, data }  (fallback)
 
@@ -271,8 +270,6 @@ function buildMediaMap(mediaXml, projectXml) {
             if (a.name && sndData && !nameMap[a.name]) nameMap[a.name] = { type: 'audio', data: sndData };
         }
     }
-    console.log('[buildMediaMap] done in', (performance.now() - t0).toFixed(1), 'ms |',
-        'byId:', Object.keys(map).length, '| byName:', Object.keys(nameMap).length);
     return { byId: map, byName: nameMap };
 }
 
@@ -725,8 +722,6 @@ function _renderAssetsInner(el, badge, sprite, projData) {
         }
     }
 
-    console.log('[renderAssets]', sprite.name, '→', costumes.length, 'costumes,', sounds.length, 'sounds');
-
     // ── Fallback: if blockXml costumes/sounds have no resolvable data (no id, no inline
     //    image), try extracting asset names directly from the blockXml <costume name="...">
     //    and <sound name="..."> tags and matching them against mediaMap.byName.
@@ -756,9 +751,6 @@ function _renderAssetsInner(el, badge, sprite, projData) {
             ? buildOwnershipMap(projData.projectXml, refMap)
             : {};
 
-        console.log('[renderAssets] fallback: costumeNames in block:', [...costumeNamesInBlock],
-            '| soundNames:', [...soundNamesInBlock], '| ownerMap size:', Object.keys(ownerMap).length);
-
         for (const [name, entry] of Object.entries(mediaMap.byName)) {
             // Determine if this asset belongs to the current target:
             // - First check if its name appears directly in the blockXml sections (most reliable)
@@ -782,80 +774,12 @@ function _renderAssetsInner(el, badge, sprite, projData) {
                 sounds.push({ name, id: null, mediaID: null, hasSound: true, isRef: false });
             }
         }
-        console.log('[renderAssets] after ownership fallback →', costumes.length, 'costumes,', sounds.length, 'sounds');
     }
-
-    // ── DEBUG PANEL ──────────────────────────────────────────────────────────
-    // Resolve each costume/sound and record what path was used (or 'NONE')
-    function resolveSource(item) {
-        if (item.mediaID && mediaMap.byId[item.mediaID]) return `byId[mediaID=${item.mediaID}] ✓`;
-        if (item.id && mediaMap.byId[item.id]) return `byId[id=${item.id}] ✓`;
-        if (item.name && mediaMap.byName[item.name]) return `byName["${item.name}"] ✓`;
-        return '✗ NOT FOUND';
-    }
-
-    const dbgLines = [];
-    dbgLines.push(`projectXml: ${projData.projectXml ? projData.projectXml.length + ' chars' : 'NULL'}`);
-    dbgLines.push(`mediaXml:   ${projData.mediaXml   ? projData.mediaXml.length   + ' chars' : 'NULL'}`);
-    dbgLines.push(`blockXml:   ${blockXml.length} chars`);
-    dbgLines.push(`mediaMap.byId keys: [${Object.keys(mediaMap.byId).join(', ') || '—'}]`);
-    dbgLines.push(`mediaMap.byName keys: [${Object.keys(mediaMap.byName).map(k=>`"${k}"`).join(', ') || '—'}]`);
-    dbgLines.push('');
-    dbgLines.push(`Costumes (${costumes.length}):`);
-    costumes.forEach((c, i) => {
-        dbgLines.push(`  #${i+1} name="${c.name}" owner=${c.owner ?? '—'} id=${c.id ?? '—'} mediaID=${c.mediaID ?? '—'} hasImage=${c.hasImage} ref=${c.isRef} → ${resolveSource(c)}`);
-    });
-    dbgLines.push('');
-    dbgLines.push(`Sounds (${sounds.length}):`);
-    sounds.forEach((s, i) => {
-        dbgLines.push(`  #${i+1} name="${s.name}" owner=${s.owner ?? '—'} id=${s.id ?? '—'} mediaID=${s.mediaID ?? '—'} hasSound=${s.hasSound} ref=${s.isRef} → ${resolveSource(s)}`);
-    });
-    // Also show first 600 chars of projectXml and mediaXml to see structure
-    dbgLines.push('');
-    dbgLines.push('projectXml[0..600]:');
-    dbgLines.push('  ' + (projData.projectXml || '').slice(0, 600).replace(/\n/g, ' '));
-    dbgLines.push('mediaXml[0..600]:');
-    dbgLines.push('  ' + (projData.mediaXml || '').slice(0, 600).replace(/\n/g, ' '));
-
-    // Show costumes/sounds sections from blockXml (to diagnose ownership structure)
-    const blockCostumesSnip = costumesStart !== -1 && costumesEnd !== -1
-        ? blockXml.slice(costumesStart, Math.min(costumesEnd + 11, costumesStart + 800)).replace(/\n/g, ' ')
-        : '—';
-    const blockSoundsSnip = soundsStart !== -1 && soundsEnd !== -1
-        ? blockXml.slice(soundsStart, Math.min(soundsEnd + 9, soundsStart + 400)).replace(/\n/g, ' ')
-        : '—';
-    dbgLines.push('');
-    dbgLines.push('blockXml <costumes>[0..800]: ' + blockCostumesSnip);
-    dbgLines.push('blockXml <sounds>[0..400]:   ' + blockSoundsSnip);
-
-    // Show first <costume and <sound tags found anywhere in projectXml / mediaXml
-    const firstCostumeInProj = (projData.projectXml || '').match(/<costume[\s][^>]{0,200}/)?.[0] ?? '—';
-    const firstSoundInProj   = (projData.projectXml || '').match(/<sound[\s][^>]{0,200}/)?.[0] ?? '—';
-    const firstCostumeInMedia = (projData.mediaXml || '').match(/<costume[\s][^>]{0,200}/)?.[0] ?? '—';
-    const firstSoundInMedia   = (projData.mediaXml || '').match(/<sound[\s][^>]{0,200}/)?.[0] ?? '—';
-    dbgLines.push('');
-    dbgLines.push('First <costume in projectXml: ' + firstCostumeInProj);
-    dbgLines.push('First <sound   in projectXml: ' + firstSoundInProj);
-    dbgLines.push('First <costume in mediaXml:   ' + firstCostumeInMedia);
-    dbgLines.push('First <sound   in mediaXml:   ' + firstSoundInMedia);
-
-    console.group('[DEBUG] Asset resolution for', sprite.name);
-    dbgLines.forEach(l => console.log(l));
-    console.groupEnd();
-
-    const dbgPanel = document.createElement('div');
-    dbgPanel.className = 'ov-debug-panel';
-    dbgPanel.innerHTML = `
-        <div class="ov-debug-title">🔍 Debug — ${esc(sprite.name)}</div>
-        <pre class="ov-debug-pre">${esc(dbgLines.join('\n'))}</pre>`;
-    el.appendChild(dbgPanel);
-    // ── END DEBUG PANEL ──────────────────────────────────────────────────────
 
     const total = costumes.length + sounds.length;
     if (badge) badge.textContent = total ? `${total} asset${total !== 1 ? 's' : ''}` : '';
 
     if (!total) {
-        // Don't wipe el (would destroy debug panel above) — just append a notice
         const empty = document.createElement('div');
         empty.className = 'ov-empty-state';
         empty.innerHTML = '<span>No costumes or sounds found</span>';
