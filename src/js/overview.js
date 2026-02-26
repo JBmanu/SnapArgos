@@ -88,15 +88,22 @@ function renderSprites(sprites, projData) {
     if (!el) return;
 
     el.innerHTML = '';
-    if (badge) badge.textContent = sprites.length ? `${sprites.length}` : '';
+    const totalSprites = sprites.filter(s => s.type === 'sprite').length;
+    const totalStages  = sprites.filter(s => s.type === 'stage').length;
+    if (badge) badge.textContent = sprites.length
+        ? `${totalStages} stage${totalStages !== 1 ? 's' : ''}, ${totalSprites} sprite${totalSprites !== 1 ? 's' : ''}`
+        : '';
 
     sprites.forEach(s => {
         const row = document.createElement('div');
-        row.className = 'ov-row ov-sprite-row';
+        const isStage = s.type === 'stage';
+        row.className = isStage ? 'ov-row ov-stage-row' : 'ov-row ov-sprite-row ov-child-row';
         row.dataset.name = s.name;
+        row.dataset.type = s.type;
+        row.dataset.parentStage = s.parentStage ?? '';
         row.innerHTML = `
             <svg fill="currentColor" viewBox="0 0 16 16">
-                ${s.type === 'stage'
+                ${isStage
                     ? '<rect x="1" y="2" width="14" height="10" rx="1.5"/><path d="M5 14h6"/>'
                     : '<circle cx="8" cy="6" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/>'}
             </svg>
@@ -109,9 +116,12 @@ function renderSprites(sprites, projData) {
 
 function onSpriteClick(sprite, projData) {
     const el = $('ov-sprite-list');
-    el.querySelectorAll('.ov-row').forEach(r =>
-        r.classList.toggle('active', r.dataset.name === sprite.name));
-
+    el.querySelectorAll('.ov-row').forEach(r => {
+        const match = r.dataset.name === sprite.name
+            && r.dataset.type === sprite.type
+            && (r.dataset.parentStage ?? '') === (sprite.parentStage ?? '');
+        r.classList.toggle('active', match);
+    });
     renderAssets(sprite, projData);
 }
 
@@ -141,9 +151,18 @@ function renderAssets(sprite, projData) {
     let blockXml;
 
     if (sprite.type === 'stage') {
-        blockXml = extractTag(xml, 'stage');
+        // Find the <stage> tag with this name, then extract the full block
+        const stageRe = new RegExp(`<stage\\s[^>]*\\bname="${escRe(sprite.name)}"[^>]*>`);
+        const stageM = xml.match(stageRe);
+        if (stageM) {
+            const start = xml.indexOf(stageM[0]);
+            blockXml = extractTag(xml.slice(start), 'stage');
+        } else {
+            // Fallback: just grab the first <stage>
+            blockXml = extractTag(xml, 'stage');
+        }
     } else {
-        const re = new RegExp(`<sprite[^>]+name="${escRe(sprite.name)}"[^>]*>`);
+        const re = new RegExp(`<sprite[^>]+\\bname="${escRe(sprite.name)}"[^>]*>`);
         const m = xml.match(re);
         if (m) {
             const start = xml.indexOf(m[0]);
@@ -160,13 +179,14 @@ function renderAssets(sprite, projData) {
     const costumesXml = extractTag(blockXml, 'costumes');
     const costumes = [];
     if (costumesXml) {
-        const matches = [...costumesXml.matchAll(/<costume\s[^>]*>/g)];
+        // Match both self-closing <costume .../> and opening <costume ...>
+        const matches = [...costumesXml.matchAll(/<costume\s([^>]*?)(?:\/>|>)/g)];
         for (const cm of matches) {
-            const tag = cm[0];
-            const name  = tag.match(/name="([^"]+)"/)?.[1] || 'unnamed';
-            const image = tag.match(/image="([^"]+)"/)?.[1] || null;
-            const cx    = tag.match(/center-x="([^"]+)"/)?.[1] || '0';
-            const cy    = tag.match(/center-y="([^"]+)"/)?.[1] || '0';
+            const attrs = cm[0];
+            const name  = attrs.match(/\bname="([^"]+)"/)?.[1] || 'unnamed';
+            const image = attrs.match(/\bimage="([^"]+)"/)?.[1] || null;
+            const cx    = attrs.match(/\bcenter-x="([^"]+)"/)?.[1] || '0';
+            const cy    = attrs.match(/\bcenter-y="([^"]+)"/)?.[1] || '0';
             costumes.push({ name, image, cx, cy });
         }
     }
@@ -175,16 +195,17 @@ function renderAssets(sprite, projData) {
     const soundsXml = extractTag(blockXml, 'sounds');
     const sounds = [];
     if (soundsXml) {
-        const matches = [...soundsXml.matchAll(/<sound\s[^>]*>/g)];
+        // Match both self-closing <sound .../> and opening <sound ...>
+        const matches = [...soundsXml.matchAll(/<sound\s([^>]*?)(?:\/>|>)/g)];
         for (const sm of matches) {
-            const tag = sm[0];
-            const name = tag.match(/name="([^"]+)"/)?.[1] || 'unnamed';
+            const attrs = sm[0];
+            const name = attrs.match(/\bname="([^"]+)"/)?.[1] || 'unnamed';
             sounds.push({ name });
         }
     }
 
     const total = costumes.length + sounds.length;
-    if (badge) badge.textContent = total ? `${total} assets` : '';
+    if (badge) badge.textContent = total ? `${total} asset${total !== 1 ? 's' : ''}` : '';
 
     if (!total) {
         el.innerHTML = '<div class="ov-empty-state"><span>No costumes or sounds</span></div>';

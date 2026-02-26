@@ -156,9 +156,36 @@ export function isFileAccepted(file, selMode, xmlType = null) {
 }
 
 export function getSpritesFromXml(projectXml) {
-    const list = [{name: 'Stage', type: 'stage'}];
-    for (const m of projectXml.matchAll(/<sprite[^>]+name="([^"]+)"/g))
-        list.push({name: m[1], type: 'sprite'});
+    const list = [];
+
+    // Extract all <stage> elements and their child sprites
+    const stageRe = /<stage\s[^>]*>/g;
+    let sm;
+    while ((sm = stageRe.exec(projectXml)) !== null) {
+        const stageTag = sm[0];
+        const stageName = stageTag.match(/\bname="([^"]+)"/)?.[1] || 'Stage';
+        list.push({ name: stageName, type: 'stage' });
+
+        // Extract the full <stage>…</stage> block to find its child sprites
+        const stageBlock = extractTag(projectXml.slice(sm.index), 'stage');
+        if (stageBlock) {
+            const spritesBlock = extractTag(stageBlock, 'sprites');
+            if (spritesBlock) {
+                for (const spm of spritesBlock.matchAll(/<sprite\s[^>]*>/g)) {
+                    const spName = spm[0].match(/\bname="([^"]+)"/)?.[1];
+                    if (spName) list.push({ name: spName, type: 'sprite', parentStage: stageName });
+                }
+            }
+        }
+    }
+
+    // Fallback if no <stage> tag found
+    if (!list.length) {
+        list.push({ name: 'Stage', type: 'stage' });
+        for (const m of projectXml.matchAll(/<sprite\s[^>]*name="([^"]+)"/g))
+            list.push({ name: m[1], type: 'sprite', parentStage: 'Stage' });
+    }
+
     return list;
 }
 

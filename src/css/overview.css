@@ -84,6 +84,23 @@
     background: rgba(77,159,255,.06);
   }
 
+  /* indent child sprites under their stage */
+  .ov-row.ov-child-row {
+    padding-left: 1.75rem;
+  }
+  .ov-row.ov-child-row::before {
+    content: '';
+    position: absolute;
+    left: 1.1rem;
+    top: 50%;
+    width: 0.4rem;
+    height: 1px;
+    background: rgba(255,255,255,.12);
+  }
+  .ov-row.ov-child-row {
+    position: relative;
+  }
+
   .ov-row-tag {
     @apply font-display text-[9px] px-1.5 py-px rounded shrink-0;
     background: rgba(255,255,255,.04);
