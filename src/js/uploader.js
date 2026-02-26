@@ -29,6 +29,9 @@ const selList = $('sel-list'), selEmptyMsg = $('sel-empty-msg');
 const modeBanner = $('mode-banner'), modeText = $('mode-text');
 const selSummary = $('sel-summary'), sprProjLbl = $('spr-proj-lbl');
 const btnClearSel = $('btn-clear-sel');
+const projCountBadge = $('proj-count-badge');
+const spriteCountBadge = $('sprite-count-badge');
+const selCountBadge = $('sel-count-badge');
 const dropZone = $('drop-zone'), fileInput = $('file-input');
 const fileListEl = $('file-list'), detectBox = $('detect-box');
 const dropHint = $('drop-hint'), fileCountBadge = $('file-count-badge');
@@ -176,6 +179,7 @@ $('btn-clear-log').onclick = () => { logPanel.innerHTML = '<div class="log-dim">
 // ═══ PROJECT LIST ═════════════════════════════════════════════════════════════
 function renderProjList() {
     projList.innerHTML = '';
+    projCountBadge.textContent = projects.length ? projects.length : '';
     if (!projects.length) { projList.innerHTML = '<div class="list-empty">No projects found</div>'; return; }
     projects.forEach(p => {
         const row = document.createElement('div');
@@ -219,6 +223,7 @@ async function loadSpritePanel(projName) {
 
 function renderSprList(sprites, projName) {
     sprList.innerHTML = '';
+    spriteCountBadge.textContent = sprites.length ? sprites.length : '';
     sprites.forEach(s => {
         const row = document.createElement('div');
         const locked = selMode === 'projects';
@@ -247,6 +252,7 @@ function resetSelection() {
     selMode = 'none'; selectedProjects = new Set(); selectedSprites = []; projectCache = new Map(); spritePanelProj = null;
     sprList.innerHTML = '<div class="list-empty">Click a project<br/>to see sprites</div>';
     sprProjLbl.textContent = '';
+    spriteCountBadge.textContent = '';
     updateBanner(); updateSelPanel(); updateDropHint(); updateDetectBox(); checkUploadReady();
 }
 
@@ -266,6 +272,8 @@ function updateSelPanel() {
     selEmptyMsg.style.display = hasAny ? 'none' : 'block';
     const clearBtn = $('btn-clear-sel');
     if (clearBtn) clearBtn.style.display = hasAny ? 'inline-flex' : 'none';
+    const selCount = selMode === 'projects' ? selectedProjects.size : selectedSprites.length;
+    selCountBadge.textContent = selCount > 0 ? selCount : '';
     if (selMode === 'projects') {
         [...selectedProjects].forEach(name => addChip('proj', name, null, () => {
             selectedProjects.delete(name); if (!selectedProjects.size) selMode = 'none';
@@ -335,13 +343,29 @@ function renderFiles() {
     fileListEl.innerHTML = '';
     const extMap = {png:'img',jpg:'img',jpeg:'img',gif:'img',svg:'img',mp3:'audio',wav:'audio',ogg:'audio',xml:'xml'};
     const clsMap = {img:'ext-img',audio:'ext-audio',xml:'ext-xml'};
+    // SVG icons per file kind
+    const kindIcons = {
+        img: `<svg class="file-kind-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>`,
+        audio: `<svg class="file-kind-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                    d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+                </svg>`,
+        xml: `<svg class="file-kind-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+              </svg>`,
+    };
     files.forEach((entry, i) => {
         const {file, xmlType, valid} = entry;
         const e = fileExt(file);
         const kind = extMap[e] || 'xml';
         const chip = document.createElement('div');
         chip.className = 'file-chip' + (valid ? '' : ' invalid');
-        chip.innerHTML = `<span class="ext-badge ${valid ? clsMap[kind]||'ext-xml' : 'ext-bad'}">${e}</span>
+        chip.innerHTML = `${kindIcons[kind] || kindIcons.xml}
+          <span class="ext-badge ${valid ? clsMap[kind]||'ext-xml' : 'ext-bad'}">${e}</span>
           <span class="fname">${esc(file.name)}</span>
           ${xmlType ? `<span class="xml-tag">${xmlType}</span>` : ''}
           ${!valid ? `<span class="rej-tag">rejected</span>` : ''}
@@ -351,7 +375,7 @@ function renderFiles() {
         fileListEl.appendChild(chip);
     });
     const valid = files.filter(f => f.valid).length;
-    fileCountBadge.textContent = files.length ? `${valid}/${files.length} accepted` : '';
+    fileCountBadge.textContent = files.length ? `${valid}/${files.length}` : '';
 }
 
 dropZone.addEventListener('dragover', e => { e.preventDefault(); if (selMode !== 'none') dropZone.classList.add('over'); });

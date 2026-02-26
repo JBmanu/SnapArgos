@@ -23,21 +23,41 @@
         </div>
         <div class="three-col">
           <div>
-            <label class="label">Projects</label>
+            <div class="col-head">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+              </svg>
+              <span>Projects</span>
+              <span class="col-head-badge" id="proj-count-badge"></span>
+            </div>
             <div class="list-box" id="project-list">
               <div class="list-empty">Click Refresh<br/>to load</div>
             </div>
           </div>
           <div>
-            <label class="label">Sprites / Stage <span id="spr-proj-lbl" style="color:var(--muted2);font-size:9px"></span></label>
+            <div class="col-head">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-8 4.5L4 7m16 0v10l-8 4.5M4 7v10l8 4.5"/>
+              </svg>
+              <span>Sprites / Stage</span>
+              <span id="spr-proj-lbl" style="color:var(--muted2);font-size:9px;margin-left:3px"></span>
+              <span class="col-head-badge" id="sprite-count-badge"></span>
+            </div>
             <div class="list-box" id="sprite-list">
               <div class="list-empty">Click a project<br/>to see sprites</div>
             </div>
           </div>
           <div>
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
-              <span class="label" style="margin-bottom:0">Selection</span>
-              <button class="btn" id="btn-clear-sel" style="font-size:9px;padding:2px 8px;opacity:.5;display:none">Clear all</button>
+            <div class="col-head">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+              </svg>
+              <span>Selection</span>
+              <span class="col-head-badge" id="sel-count-badge"></span>
+              <button class="btn" id="btn-clear-sel" style="font-size:9px;padding:2px 8px;opacity:.5;display:none;margin-left:auto">Clear all</button>
             </div>
             <div class="list-box" id="sel-list" style="padding:8px">
               <div class="sel-empty-msg" id="sel-empty-msg">Nothing selected.<br/>Click projects<br/>or sprites.</div>
@@ -54,7 +74,7 @@
           <div class="step-num">2</div>
           <span class="card-title">Files</span>
         </div>
-        <span id="file-count-badge" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)"></span>
+        <span id="file-count-badge" class="col-head-badge" style="margin-left:auto"></span>
       </div>
       <div class="card-body">
         <div id="drop-zone" class="drop-zone">

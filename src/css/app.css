@@ -312,6 +312,24 @@ body::after {
     color: var(--muted2);
 }
 
+/* ── Column head (icon + label + badge) ──────────────────────────────────── */
+.col-head {
+    @apply flex items-center gap-[7px]
+           font-display text-[10px] uppercase tracking-widest text-snap-muted
+           pb-[7px] mb-[7px];
+}
+.col-head svg {
+    @apply w-[13px] h-[13px] shrink-0 opacity-60;
+}
+.col-head-badge {
+    @apply font-display text-[10px] text-snap-muted ml-auto;
+}
+
+/* ── File-chip kind icon ──────────────────────────────────────────────────── */
+.file-kind-icon {
+    @apply w-[13px] h-[13px] shrink-0 opacity-50;
+}
+
 /* ── Project & sprite rows ─────────────────────────────────────────────────── */
 .proj-row, .spr-row {
     @apply flex items-center gap-[7px] cursor-pointer transition-colors
