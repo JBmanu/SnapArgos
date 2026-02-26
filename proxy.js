@@ -78,12 +78,25 @@ async function snapRequest(jar, method, apiPath, { body, wantsRaw = false } = {}
     const text = await res.text();
     if (!text) throw new Error(`Empty response from ${method} ${apiPath}`);
 
-    if (!wantsRaw || text.startsWith('{"errors"')) {
+    console.log(`[snapReq] ${method} ${apiPath} → ${text.length} chars, starts: ${text.slice(0, 60).replace(/\n/g,' ')}`);
+
+    // Try JSON parse for any response that looks like JSON
+    const trimmed = text.trimStart();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
         let json;
-        try { json = JSON.parse(text); } catch { throw new Error(text); }
+        try { json = JSON.parse(text); } catch {
+            // Not valid JSON — if wantsRaw, return text as-is; otherwise throw
+            if (wantsRaw) return text;
+            throw new Error(text);
+        }
         if (json.errors) throw new Error(json.errors[0]);
-        return json.message !== undefined ? json.message : json;
+        if (json.error)  throw new Error(json.error);
+        // Unwrap message envelope if present
+        const content = json.message !== undefined ? json.message : json;
+        return content;
     }
+
+    // Non-JSON response — return as-is for wantsRaw; for other calls, return text directly
     return text;
 }
 
@@ -248,6 +261,27 @@ app.get('/snap-api/debug-project/:name', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`\n  ✦ Snap! Uploader  →  http://localhost:${PORT}`);
     console.log(`  ✦ API bridge      →  /snap-api/* → ${SNAP_BASE}\n`);
+});
+
+// ─── DEBUG: raw XML skeleton (strips base64, keeps structure) ────────────────
+app.get('/snap-api/debug-raw/:name', async (req, res) => {
+    const jar = getJar(req.sid);
+    if (!jar.username) return res.status(401).json({ error: 'Not logged in' });
+    try {
+        const raw = await snapRequest(jar, 'GET',
+            `/projects/${encodeURIComponent(jar.username)}/${encodeURIComponent(req.params.name)}`,
+            { wantsRaw: true }
+        );
+        // Strip ALL base64 data blobs but keep attribute names + tag structure
+        const skeleton = raw
+            .replace(/(image|sound|pentrails|thumbnail)="data:[^"]*"/g, '$1="[BASE64_STRIPPED]"')
+            .replace(/>data:image\/[^<]*/g, '>[BASE64_TEXT_STRIPPED]')
+            .replace(/>data:audio\/[^<]*/g, '>[BASE64_TEXT_STRIPPED]');
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.send(skeleton);
+    } catch(e) {
+        res.status(500).send('ERROR: ' + e.message);
+    }
 });
 
 // ─── DEBUG: dump costumes+sounds per sprite ────────────────────────────────────

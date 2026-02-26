@@ -1,7 +1,7 @@
 /**
  * overview.js — Overview page: browse projects → sprites → costumes & sounds
  */
-import { getProject, getSpritesFromXml, extractTag } from './snap-api.js?v=11';
+import { getProject, getSpritesFromXml, extractTag } from './snap-api.js?v=12';
 import { appState, bus } from './app.js';
 
 let _projectsHandler = null;
@@ -396,165 +396,156 @@ function renderAssets(sprite, projData) {
     if (!el) return;
     el.innerHTML = '';
 
+    // Debug banner — always show project stats
+    const debugDiv = document.createElement('div');
+    debugDiv.id = 'ov-debug-banner';
+    debugDiv.style.cssText = 'font-size:9px;color:#888;padding:4px 8px;background:rgba(0,0,0,0.15);border-radius:4px;margin-bottom:4px;word-break:break-all;max-height:100px;overflow:auto;';
+    const pLen = projData.projectXml?.length || 0;
+    const mLen = projData.mediaXml?.length || 0;
+    const pStart = projData.projectXml?.slice(0, 80)?.replace(/</g, '&lt;') || 'NULL';
+    debugDiv.innerHTML = `projXml: ${pLen} chars | mediaXml: ${mLen} chars<br>start: ${pStart}`;
+    el.appendChild(debugDiv);
+
+    // Content container — _renderAssetsInner will append to this
+    const content = document.createElement('div');
+    el.appendChild(content);
+
     if (!projData.projectXml) {
-        el.innerHTML = '<div class="ov-empty-state"><span style="color:#f87171">No project data</span></div>';
+        content.innerHTML = `<div class="ov-empty-state"><span style="color:#f87171">No project data — projectXml is null/empty</span></div>`;
         return;
     }
 
     try {
-        _renderAssetsInner(el, badge, sprite, projData);
+        _renderAssetsInner(content, badge, sprite, projData);
     } catch (err) {
         console.error('[renderAssets] Error:', err);
-        el.innerHTML = `<div class="ov-empty-state"><span style="color:#f87171">Error loading assets: ${esc(err.message)}</span></div>`;
+        content.innerHTML = `<div class="ov-empty-state"><span style="color:#f87171">Error: ${esc(err.message)}</span>
+            <div style="font-size:10px;color:#888;margin-top:6px;word-break:break-all">
+                projectXml: ${projData.projectXml ? projData.projectXml.length + ' chars' : 'NULL'}<br>
+                mediaXml: ${projData.mediaXml ? projData.mediaXml.length + ' chars' : 'NULL'}
+            </div>
+        </div>`;
     }
 }
 
 function _renderAssetsInner(el, badge, sprite, projData) {
-    // Build comprehensive media map from both <media> and inline data in <project>
-    let mediaById = {}, mediaByName = {};
-    try {
-        const mm = buildMediaMap(projData.mediaXml, projData.projectXml);
-        mediaById = mm.byId;
-        mediaByName = mm.byName;
-        console.log('[renderAssets] mediaMap: byId=', Object.keys(mediaById).length,
-            '| byName=', Object.keys(mediaByName).length);
-    } catch (e) {
-        console.warn('[renderAssets] buildMediaMap failed:', e);
-    }
-
     // Find the XML block for this stage/sprite
     const blockXml = findTargetBlock(projData.projectXml, sprite);
+
+    // Add block debug info to debug banner
+    const debugBanner = document.getElementById('ov-debug-banner');
+    if (debugBanner) {
+        const bLen = blockXml?.length || 0;
+        const hasCostumes = blockXml?.includes('<costumes') || false;
+        const hasSounds = blockXml?.includes('<sounds') || false;
+        debugBanner.innerHTML += `<br>block: ${bLen} chars | &lt;costumes&gt;: ${hasCostumes} | &lt;sounds&gt;: ${hasSounds}`;
+    }
+
     if (!blockXml) {
         el.innerHTML = `<div class="ov-empty-state"><span style="color:#f87171">Could not find "${esc(sprite.name)}" in project XML</span></div>`;
         return;
     }
 
-    // Debug: dump structure of blockXml and mediaXml
-    const stripB64 = s => s ? s.replace(/(image|sound|pentrails)="data:[^"]{0,40}[^"]*"/g, '$1="[BASE64]"') : '';
-    console.log('[renderAssets] blockXml length:', blockXml.length,
-        '| first 500 chars:', stripB64(blockXml.slice(0, 500)));
-    console.log('[renderAssets] mediaXml length:', projData.mediaXml?.length || 0,
-        '| first 500 chars:', stripB64(projData.mediaXml?.slice(0, 500)));
-    // Show all costume/sound tag openings in both blockXml and mediaXml
-    const costumeTagsInBlock = [...blockXml.matchAll(/<costume\s/g)].length;
-    const soundTagsInBlock = [...blockXml.matchAll(/<sound\s/g)].length;
-    const costumeTagsInMedia = [...(projData.mediaXml || '').matchAll(/<costume\s/g)].length;
-    const soundTagsInMedia = [...(projData.mediaXml || '').matchAll(/<sound\s/g)].length;
-    console.log('[renderAssets] raw tag counts — blockXml: costumes=', costumeTagsInBlock, 'sounds=', soundTagsInBlock,
-        '| mediaXml: costumes=', costumeTagsInMedia, 'sounds=', soundTagsInMedia);
+    // ── SIMPLE NAME EXTRACTION ──
+    // Use indexOf-based scanning to find costume/sound names efficiently.
+    // Avoids regex issues with huge base64 attribute values.
 
-    // ── Extract costumes ──
     const costumes = [];
-    const costumesXml = extractTag(blockXml, 'costumes');
-    console.log('[renderAssets] costumesXml found:', !!costumesXml,
-        '| length:', costumesXml?.length || 0,
-        '| preview:', stripB64(costumesXml?.slice(0, 300)));
-
-    if (costumesXml) {
-        const costumeAttrs = extractTagAttrs(costumesXml, 'costume');
-        console.log('[renderAssets] costume tags found:', costumeAttrs.length);
-        for (const a of costumeAttrs) {
-            const name = a.name || 'unnamed';
-            let image = a.image ? decodeEntities(a.image) : null;
-            // Try all resolution methods
-            let resolvedBy = image ? 'inline' : null;
-            if (!image && a.mediaID && mediaById[a.mediaID]) { image = mediaById[a.mediaID].data; resolvedBy = 'mediaID'; }
-            if (!image && a.id && mediaById[a.id]) { image = mediaById[a.id].data; resolvedBy = 'id'; }
-            if (!image && name && mediaByName[name]) { image = mediaByName[name].data; resolvedBy = 'name'; }
-            console.log('[renderAssets] costume:', name,
-                '| attrs:', Object.keys(a).filter(k => k !== 'image' && k !== 'sound').join(','),
-                '| inline image:', !!a.image, '| mediaID:', a.mediaID || '-', '| id:', a.id || '-',
-                '| resolved:', !!image, '| by:', resolvedBy || 'NONE');
-            costumes.push({
-                name, image,
-                cx: a['center-x'] || '0', cy: a['center-y'] || '0',
-                id: a.id, mediaID: a.mediaID, resolved: !!image, resolvedBy
-            });
-        }
-    }
-
-    // ── Extract sounds ──
     const sounds = [];
-    const soundsXml = extractTag(blockXml, 'sounds');
-    console.log('[renderAssets] soundsXml found:', !!soundsXml,
-        '| length:', soundsXml?.length || 0);
 
-    if (soundsXml) {
-        const soundAttrs = extractTagAttrs(soundsXml, 'sound');
-        console.log('[renderAssets] sound tags found:', soundAttrs.length);
-        for (const a of soundAttrs) {
-            const name = a.name || 'unnamed';
-            let audio = a.sound ? decodeEntities(a.sound) : null;
-            let resolvedBy = audio ? 'inline' : null;
-            if (!audio && a.mediaID && mediaById[a.mediaID]) { audio = mediaById[a.mediaID].data; resolvedBy = 'mediaID'; }
-            if (!audio && a.id && mediaById[a.id]) { audio = mediaById[a.id].data; resolvedBy = 'id'; }
-            if (!audio && name && mediaByName[name]) { audio = mediaByName[name].data; resolvedBy = 'name'; }
-            console.log('[renderAssets] sound:', name,
-                '| attrs:', Object.keys(a).filter(k => k !== 'sound').join(','),
-                '| inline sound:', !!a.sound, '| mediaID:', a.mediaID || '-', '| id:', a.id || '-',
-                '| resolved:', !!audio, '| by:', resolvedBy || 'NONE');
-            sounds.push({
-                name, audio,
-                id: a.id, mediaID: a.mediaID, resolved: !!audio, resolvedBy
-            });
+    // Helper: find all name="..." values from <tagName ...> tags within a region
+    function findAssetNames(xml, startTag) {
+        const names = [];
+        let pos = 0;
+        while (pos < xml.length) {
+            const tagIdx = xml.indexOf('<' + startTag, pos);
+            if (tagIdx === -1) break;
+            // Make sure it's a word boundary (not e.g. <costumes matching <costume)
+            const afterChar = xml[tagIdx + startTag.length + 1];
+            if (afterChar && !/[\s>\/]/.test(afterChar)) { pos = tagIdx + 1; continue; }
+            // Find the closing '>' of this tag, skipping over quoted attr values
+            let i = tagIdx + startTag.length + 1;
+            let name = null;
+            while (i < xml.length) {
+                const c = xml[i];
+                if (c === '>') break;
+                // Check for name=" at this position (word boundary: prev is whitespace, quote, or start)
+                if (xml.startsWith('name="', i) && (i === 0 || /[\s"']/.test(xml[i - 1]))) {
+                    const valStart = i + 6;
+                    const valEnd = xml.indexOf('"', valStart);
+                    if (valEnd !== -1) {
+                        name = xml.slice(valStart, valEnd);
+                    }
+                    i = valEnd !== -1 ? valEnd + 1 : i + 1;
+                    continue;
+                }
+                // Skip quoted attribute values using indexOf (fast for huge base64)
+                if (c === '"') {
+                    const closeQuote = xml.indexOf('"', i + 1);
+                    if (closeQuote === -1) break;
+                    i = closeQuote + 1;
+                    continue;
+                }
+                if (c === "'") {
+                    const closeQuote = xml.indexOf("'", i + 1);
+                    if (closeQuote === -1) break;
+                    i = closeQuote + 1;
+                    continue;
+                }
+                i++;
+            }
+            if (name !== null) names.push(name);
+            pos = i + 1;
+        }
+        return names;
+    }
+
+    // Find <costumes>...</costumes> region
+    const costumesStart = blockXml.indexOf('<costumes');
+    const costumesEnd = blockXml.indexOf('</costumes>', costumesStart !== -1 ? costumesStart : 0);
+    if (costumesStart !== -1 && costumesEnd !== -1 && costumesEnd > costumesStart) {
+        const costumesRegion = blockXml.slice(costumesStart, costumesEnd + 11);
+        for (const name of findAssetNames(costumesRegion, 'costume')) {
+            costumes.push({ name: name || 'unnamed' });
         }
     }
+
+    // Find <sounds>...</sounds> region
+    const soundsStart = blockXml.indexOf('<sounds');
+    const soundsEnd = blockXml.indexOf('</sounds>', soundsStart !== -1 ? soundsStart : 0);
+    if (soundsStart !== -1 && soundsEnd !== -1 && soundsEnd > soundsStart) {
+        const soundsRegion = blockXml.slice(soundsStart, soundsEnd + 9);
+        for (const name of findAssetNames(soundsRegion, 'sound')) {
+            sounds.push({ name: name || 'unnamed' });
+        }
+    }
+
+    console.log('[renderAssets]', sprite.name, '→', costumes.length, 'costumes,', sounds.length, 'sounds');
+    console.log('[renderAssets] blockXml length:', blockXml.length,
+        '| costumesStart:', costumesStart, '| costumesEnd:', costumesEnd,
+        '| soundsStart:', soundsStart, '| soundsEnd:', soundsEnd);
 
     const total = costumes.length + sounds.length;
     if (badge) badge.textContent = total ? `${total} asset${total !== 1 ? 's' : ''}` : '';
 
-    // Fallback: if no costumes/sounds found via normal extraction,
-    // try a direct regex scan of the block XML for costume/sound name attributes
     if (!total) {
-        console.warn('[renderAssets] No assets found via normal extraction. Trying regex fallback on blockXml...');
-        const fallbackCostumes = [];
-        const fallbackSounds = [];
-        for (const m of blockXml.matchAll(/<costume\s[^>]*name="([^"]+)"/g)) {
-            const name = m[1];
-            let image = null;
-            if (mediaByName[name]) image = mediaByName[name].data;
-            fallbackCostumes.push({ name, image, cx: '0', cy: '0', resolved: !!image, resolvedBy: image ? 'name-fallback' : null });
-        }
-        for (const m of blockXml.matchAll(/<sound\s[^>]*name="([^"]+)"/g)) {
-            const name = m[1];
-            let audio = null;
-            if (mediaByName[name]) audio = mediaByName[name].data;
-            fallbackSounds.push({ name, audio, resolved: !!audio, resolvedBy: audio ? 'name-fallback' : null });
-        }
-        const fbTotal = fallbackCostumes.length + fallbackSounds.length;
-        console.log('[renderAssets] regex fallback found:', fallbackCostumes.length, 'costumes,', fallbackSounds.length, 'sounds');
-        if (fbTotal) {
-            if (badge) badge.textContent = `${fbTotal} asset${fbTotal !== 1 ? 's' : ''}`;
-            renderAssetItems(el, fallbackCostumes, fallbackSounds);
-            return;
-        }
-    }
-
-    if (!total) {
-        el.innerHTML = '<div class="ov-empty-state"><span>No costumes or sounds</span></div>';
+        // Debug: show what we found in the blockXml
+        const stripB64 = s => s.replace(/(image|sound|pentrails)="data:[^"]*"/g, '$1="[B64]"');
+        const preview = stripB64(blockXml.slice(0, 800));
+        console.warn('[renderAssets] No assets. Preview:', preview);
+        el.innerHTML = `<div class="ov-empty-state">
+            <span>No costumes or sounds found</span>
+            <div style="font-size:10px;color:#888;margin-top:8px;max-height:150px;overflow:auto;text-align:left;word-break:break-all;padding:4px;background:rgba(0,0,0,0.2);border-radius:4px">
+                blockXml (${blockXml.length} chars):<br>
+                costumesStart=${costumesStart} costumesEnd=${costumesEnd}<br>
+                soundsStart=${soundsStart} soundsEnd=${soundsEnd}<br>
+                first 400 chars: ${esc(preview.slice(0, 400))}
+            </div>
+        </div>`;
         return;
     }
 
-    // Show a small diagnostic banner if some assets are unresolved
-    const unresolvedCount = costumes.filter(c => !c.resolved).length + sounds.filter(s => !s.resolved).length;
-    if (unresolvedCount > 0) {
-        const info = document.createElement('div');
-        info.className = 'ov-section-head';
-        info.style.cssText = 'font-size:10px;color:#f59e0b;padding:4px 10px;';
-        const mediaLen = projData.mediaXml?.length || 0;
-        const mediaIdKeys = Object.keys(mediaById).length;
-        const mediaNameKeys = Object.keys(mediaByName).length;
-        info.textContent = `⚠ ${unresolvedCount} asset(s) without preview — media: ${mediaLen} chars, ${mediaIdKeys} by-id, ${mediaNameKeys} by-name`;
-        el.appendChild(info);
-    }
-
-    renderAssetItems(el, costumes, sounds);
-}
-
-// ═══ RENDER ASSET ITEMS ══════════════════════════════════════════════════════
-function renderAssetItems(el, costumes, sounds) {
-
-    // ── Costumes section ──
+    // ── Render costumes ──
     if (costumes.length) {
         const head = document.createElement('div');
         head.className = 'ov-section-head';
@@ -570,32 +561,18 @@ function renderAssetItems(el, costumes, sounds) {
         costumes.forEach((c, i) => {
             const item = document.createElement('div');
             item.className = 'ov-asset-item';
-            // Show image preview if available, otherwise a placeholder with info
-            let thumbHtml;
-            if (c.image && c.image.startsWith('data:')) {
-                thumbHtml = `<img src="${c.image}" alt="${esc(c.name)}"/>`;
-            } else {
-                thumbHtml = `<span class="ov-thumb-placeholder">🖼</span>`;
-            }
-            // Build detail line — show resolution info for unresolved costumes
-            const detailParts = [`center: ${c.cx}, ${c.cy}`];
-            if (c.mediaID) detailParts.push(`mediaID: ${c.mediaID}`);
-            if (c.id) detailParts.push(`id: ${c.id}`);
-            if (c.resolvedBy) detailParts.push(`via: ${c.resolvedBy}`);
-            if (!c.resolved) detailParts.push('⚠ no preview');
-
             item.innerHTML = `
-                <div class="ov-thumb">${thumbHtml}</div>
+                <div class="ov-thumb"><span class="ov-thumb-placeholder">🖼</span></div>
                 <div class="ov-asset-info">
                     <div class="ov-asset-name">${esc(c.name)}</div>
-                    <div class="ov-asset-detail">${esc(detailParts.join(' · '))}</div>
+                    <div class="ov-asset-detail">costume ${i + 1}</div>
                 </div>
                 <span class="ov-index-badge costume">#${i + 1}</span>`;
             el.appendChild(item);
         });
     }
 
-    // ── Sounds section ──
+    // ── Render sounds ──
     if (sounds.length) {
         const head = document.createElement('div');
         head.className = 'ov-section-head';
@@ -611,12 +588,6 @@ function renderAssetItems(el, costumes, sounds) {
         sounds.forEach((s, i) => {
             const item = document.createElement('div');
             item.className = 'ov-asset-item';
-            const detailParts = [`sound ${i + 1}`];
-            if (s.mediaID) detailParts.push(`mediaID: ${s.mediaID}`);
-            if (s.id) detailParts.push(`id: ${s.id}`);
-            if (s.resolvedBy) detailParts.push(`via: ${s.resolvedBy}`);
-            if (!s.resolved) detailParts.push('⚠ no preview');
-
             item.innerHTML = `
                 <div class="ov-sound-thumb">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -626,22 +597,9 @@ function renderAssetItems(el, costumes, sounds) {
                 </div>
                 <div class="ov-asset-info">
                     <div class="ov-asset-name">${esc(s.name)}</div>
-                    <div class="ov-asset-detail">${esc(detailParts.join(' · '))}</div>
+                    <div class="ov-asset-detail">sound ${i + 1}</div>
                 </div>
                 <span class="ov-index-badge sound">#${i + 1}</span>`;
-            if (s.audio && s.audio.startsWith('data:')) {
-                const btn = document.createElement('button');
-                btn.className = 'ov-play-btn';
-                btn.title = 'Play';
-                btn.innerHTML = `<svg fill="currentColor" viewBox="0 0 16 16"><path d="M3 2.5l10 5.5-10 5.5V2.5z"/></svg>`;
-                let audioEl = null;
-                btn.addEventListener('click', () => {
-                    if (audioEl && !audioEl.paused) { audioEl.pause(); return; }
-                    audioEl = new Audio(s.audio);
-                    audioEl.play();
-                });
-                item.appendChild(btn);
-            }
             el.appendChild(item);
         });
     }

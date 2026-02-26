@@ -9,7 +9,7 @@ import {
     importSpriteXml, importCustomBlocks, importScriptXml,
     detectXmlType, isFileAccepted, fileExt, fileBase,
     EXTS_IMG, EXTS_AUDIO, state,
-} from './snap-api.js?v=11';
+} from './snap-api.js?v=12';
 import { appState, bus } from './app.js';
 
 console.log('[uploader-page] ✓ module loaded');
