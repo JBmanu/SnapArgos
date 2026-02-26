@@ -147,7 +147,33 @@ export async function getProject(projectName) {
         '| starts with:', raw?.slice(0, 30));
 
     const projectXml = extractTag(raw, 'project');
-    const mediaXml = extractTag(raw, 'media') || '<media></media>';
+
+    // Extract the OUTER <media> block — the one that lives outside <project>,
+    // as a sibling inside <snapdata>. The inner <media> (nested inside <project>)
+    // is typically empty; all actual image/sound data is in the outer one.
+    // Strategy: find </project>, then look for <media after that position.
+    let mediaXml = '<media></media>';
+    if (projectXml) {
+        const projEnd = raw.indexOf('</project>');
+        if (projEnd !== -1) {
+            const afterProject = raw.slice(projEnd + 10); // skip past </project>
+            const outerMedia = extractTag(afterProject, 'media');
+            if (outerMedia) {
+                mediaXml = outerMedia;
+                console.log('[getProject] using OUTER media block, length:', outerMedia.length);
+            } else {
+                // Fallback: use first <media> anywhere (old behaviour)
+                mediaXml = extractTag(raw, 'media') || '<media></media>';
+                console.log('[getProject] no outer media found, falling back to first <media>');
+            }
+        } else {
+            mediaXml = extractTag(raw, 'media') || '<media></media>';
+        }
+    } else {
+        // No <project> tag — might be a raw <sprites> export or other format
+        mediaXml = extractTag(raw, 'media') || '<media></media>';
+    }
+
     console.log('[getProject] projectXml length:', projectXml?.length,
         '| mediaXml length:', mediaXml?.length);
     // Count costume tags with inline images vs mediaID references

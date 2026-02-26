@@ -1,7 +1,7 @@
 /**
  * overview.js — Overview page: browse projects → sprites → costumes & sounds
  */
-import { getProject, getSpritesFromXml, extractTag } from './snap-api.js?v=12';
+import { getProject, getSpritesFromXml, extractTag } from './snap-api.js?v=14';
 import { appState, bus } from './app.js';
 
 let _projectsHandler = null;
@@ -274,6 +274,31 @@ function buildMediaMap(mediaXml, projectXml) {
 }
 
 /**
+ * Build a map from id → {name, type} by scanning the entire projectXml for
+ * <costume> and <sound> tags. Used to resolve <ref id="X"/> references.
+ */
+function buildRefMap(projectXml, mediaXml) {
+    const map = {}; // id → { name, assetType }
+    if (projectXml) {
+        for (const a of extractTagAttrs(projectXml, 'costume')) {
+            if (a.id) map[a.id] = { name: a.name || `costume-${a.id}`, assetType: 'costume' };
+        }
+        for (const a of extractTagAttrs(projectXml, 'sound')) {
+            if (a.id) map[a.id] = { name: a.name || `sound-${a.id}`, assetType: 'sound' };
+        }
+    }
+    if (mediaXml) {
+        for (const a of extractTagAttrs(mediaXml, 'costume')) {
+            if (a.id && !map[a.id]) map[a.id] = { name: a.name || `costume-${a.id}`, assetType: 'costume' };
+        }
+        for (const a of extractTagAttrs(mediaXml, 'sound')) {
+            if (a.id && !map[a.id]) map[a.id] = { name: a.name || `sound-${a.id}`, assetType: 'sound' };
+        }
+    }
+    return map;
+}
+
+/**
  * Find the XML block for a specific sprite or stage target, handling:
  * - Multiple stages
  * - Sprites with same name in different stages (uses parentStage)
@@ -396,17 +421,7 @@ function renderAssets(sprite, projData) {
     if (!el) return;
     el.innerHTML = '';
 
-    // Debug banner — always show project stats
-    const debugDiv = document.createElement('div');
-    debugDiv.id = 'ov-debug-banner';
-    debugDiv.style.cssText = 'font-size:9px;color:#888;padding:4px 8px;background:rgba(0,0,0,0.15);border-radius:4px;margin-bottom:4px;word-break:break-all;max-height:100px;overflow:auto;';
-    const pLen = projData.projectXml?.length || 0;
-    const mLen = projData.mediaXml?.length || 0;
-    const pStart = projData.projectXml?.slice(0, 80)?.replace(/</g, '&lt;') || 'NULL';
-    debugDiv.innerHTML = `projXml: ${pLen} chars | mediaXml: ${mLen} chars<br>start: ${pStart}`;
-    el.appendChild(debugDiv);
-
-    // Content container — _renderAssetsInner will append to this
+    // Content container
     const content = document.createElement('div');
     el.appendChild(content);
 
@@ -419,130 +434,250 @@ function renderAssets(sprite, projData) {
         _renderAssetsInner(content, badge, sprite, projData);
     } catch (err) {
         console.error('[renderAssets] Error:', err);
-        content.innerHTML = `<div class="ov-empty-state"><span style="color:#f87171">Error: ${esc(err.message)}</span>
-            <div style="font-size:10px;color:#888;margin-top:6px;word-break:break-all">
-                projectXml: ${projData.projectXml ? projData.projectXml.length + ' chars' : 'NULL'}<br>
-                mediaXml: ${projData.mediaXml ? projData.mediaXml.length + ' chars' : 'NULL'}
-            </div>
-        </div>`;
+        content.innerHTML = `<div class="ov-empty-state"><span style="color:#f87171">Error: ${esc(err.message)}</span></div>`;
     }
 }
+
+/**
+ * Extract asset info from a section of XML, handling both <costume>/<sound> tags
+ * AND <ref id="X"/> tags (Snap's deduplication mechanism).
+ *
+ * Returns an array of { name, id, mediaID, hasImage, hasSound, isRef }
+ */
+function extractAssetsFromRegion(xml, assetTag, refMap) {
+    const assets = [];
+    // Scan for both <assetTag ...> and <ref ...> within <item> wrappers
+    let pos = 0;
+    while (pos < xml.length) {
+        // Find next <item> or next tag of interest
+        const nextAsset = xml.indexOf('<' + assetTag, pos);
+        const nextRef = xml.indexOf('<ref', pos);
+
+        // Determine which comes first
+        let useAsset = nextAsset !== -1;
+        let useRef = nextRef !== -1;
+
+        if (useAsset && useRef) {
+            if (nextRef < nextAsset) useAsset = false;
+            else useRef = false;
+        }
+
+        if (!useAsset && !useRef) break;
+
+        if (useAsset) {
+            const tagIdx = nextAsset;
+            const afterChar = xml[tagIdx + assetTag.length + 1];
+            if (afterChar && !/[\s>\/]/.test(afterChar)) { pos = tagIdx + 1; continue; }
+
+            // Parse opening tag attributes
+            let i = tagIdx + assetTag.length + 1;
+            let inQ = null;
+            while (i < xml.length) {
+                const c = xml[i];
+                if (inQ) {
+                    const ci = xml.indexOf(inQ, i);
+                    if (ci === -1) { i = xml.length; break; }
+                    i = ci + 1; inQ = null; continue;
+                }
+                if (c === '"' || c === "'") { inQ = c; i++; continue; }
+                if (c === '>') break;
+                i++;
+            }
+            const tagStr = xml.slice(tagIdx, i + 1);
+            const attrs = parseAttrs(tagStr);
+            assets.push({
+                name: attrs.name ? decodeEntities(attrs.name) : null,
+                id: attrs.id || null,
+                mediaID: attrs.mediaID || null,
+                hasImage: !!(attrs.image && attrs.image.startsWith('data:')),
+                hasSound: !!(attrs.sound && attrs.sound.startsWith('data:')),
+                isRef: false,
+            });
+            pos = i + 1;
+        } else {
+            // <ref id="X"/>
+            const tagIdx = nextRef;
+            const afterChar = xml[tagIdx + 4];
+            if (afterChar && !/[\s>\/]/.test(afterChar)) { pos = tagIdx + 1; continue; }
+
+            // Parse <ref .../>
+            let i = tagIdx + 4;
+            while (i < xml.length && xml[i] !== '>') i++;
+            const tagStr = xml.slice(tagIdx, i + 1);
+            const attrs = parseAttrs(tagStr);
+            const refId = attrs.id;
+            const resolved = refId ? refMap[refId] : null;
+
+            if (resolved && resolved.assetType === assetTag) {
+                assets.push({
+                    name: resolved.name,
+                    id: refId,
+                    mediaID: null,
+                    hasImage: false,
+                    hasSound: false,
+                    isRef: true,
+                });
+            }
+            pos = i + 1;
+        }
+    }
+    return assets;
+}
+
 
 function _renderAssetsInner(el, badge, sprite, projData) {
     // Find the XML block for this stage/sprite
     const blockXml = findTargetBlock(projData.projectXml, sprite);
-
-    // Add block debug info to debug banner
-    const debugBanner = document.getElementById('ov-debug-banner');
-    if (debugBanner) {
-        const bLen = blockXml?.length || 0;
-        const hasCostumes = blockXml?.includes('<costumes') || false;
-        const hasSounds = blockXml?.includes('<sounds') || false;
-        debugBanner.innerHTML += `<br>block: ${bLen} chars | &lt;costumes&gt;: ${hasCostumes} | &lt;sounds&gt;: ${hasSounds}`;
-    }
 
     if (!blockXml) {
         el.innerHTML = `<div class="ov-empty-state"><span style="color:#f87171">Could not find "${esc(sprite.name)}" in project XML</span></div>`;
         return;
     }
 
-    // ── SIMPLE NAME EXTRACTION ──
-    // Use indexOf-based scanning to find costume/sound names efficiently.
-    // Avoids regex issues with huge base64 attribute values.
+    // Build maps for resolving refs and media
+    const refMap = buildRefMap(projData.projectXml, projData.mediaXml);
+    const mediaMap = buildMediaMap(projData.mediaXml, projData.projectXml);
 
+    // ── Extract costumes ──
     const costumes = [];
-    const sounds = [];
-
-    // Helper: find all name="..." values from <tagName ...> tags within a region
-    function findAssetNames(xml, startTag) {
-        const names = [];
-        let pos = 0;
-        while (pos < xml.length) {
-            const tagIdx = xml.indexOf('<' + startTag, pos);
-            if (tagIdx === -1) break;
-            // Make sure it's a word boundary (not e.g. <costumes matching <costume)
-            const afterChar = xml[tagIdx + startTag.length + 1];
-            if (afterChar && !/[\s>\/]/.test(afterChar)) { pos = tagIdx + 1; continue; }
-            // Find the closing '>' of this tag, skipping over quoted attr values
-            let i = tagIdx + startTag.length + 1;
-            let name = null;
-            while (i < xml.length) {
-                const c = xml[i];
-                if (c === '>') break;
-                // Check for name=" at this position (word boundary: prev is whitespace, quote, or start)
-                if (xml.startsWith('name="', i) && (i === 0 || /[\s"']/.test(xml[i - 1]))) {
-                    const valStart = i + 6;
-                    const valEnd = xml.indexOf('"', valStart);
-                    if (valEnd !== -1) {
-                        name = xml.slice(valStart, valEnd);
-                    }
-                    i = valEnd !== -1 ? valEnd + 1 : i + 1;
-                    continue;
-                }
-                // Skip quoted attribute values using indexOf (fast for huge base64)
-                if (c === '"') {
-                    const closeQuote = xml.indexOf('"', i + 1);
-                    if (closeQuote === -1) break;
-                    i = closeQuote + 1;
-                    continue;
-                }
-                if (c === "'") {
-                    const closeQuote = xml.indexOf("'", i + 1);
-                    if (closeQuote === -1) break;
-                    i = closeQuote + 1;
-                    continue;
-                }
-                i++;
-            }
-            if (name !== null) names.push(name);
-            pos = i + 1;
-        }
-        return names;
-    }
-
-    // Find <costumes>...</costumes> region
     const costumesStart = blockXml.indexOf('<costumes');
     const costumesEnd = blockXml.indexOf('</costumes>', costumesStart !== -1 ? costumesStart : 0);
     if (costumesStart !== -1 && costumesEnd !== -1 && costumesEnd > costumesStart) {
         const costumesRegion = blockXml.slice(costumesStart, costumesEnd + 11);
-        for (const name of findAssetNames(costumesRegion, 'costume')) {
-            costumes.push({ name: name || 'unnamed' });
+        const found = extractAssetsFromRegion(costumesRegion, 'costume', refMap);
+        for (const a of found) {
+            costumes.push({
+                name: a.name || `costume-${a.id || '?'}`,
+                id: a.id,
+                mediaID: a.mediaID,
+                hasImage: a.hasImage,
+                isRef: a.isRef,
+            });
         }
     }
 
-    // Find <sounds>...</sounds> region
+    // ── Extract sounds ──
+    const sounds = [];
     const soundsStart = blockXml.indexOf('<sounds');
     const soundsEnd = blockXml.indexOf('</sounds>', soundsStart !== -1 ? soundsStart : 0);
     if (soundsStart !== -1 && soundsEnd !== -1 && soundsEnd > soundsStart) {
         const soundsRegion = blockXml.slice(soundsStart, soundsEnd + 9);
-        for (const name of findAssetNames(soundsRegion, 'sound')) {
-            sounds.push({ name: name || 'unnamed' });
+        const found = extractAssetsFromRegion(soundsRegion, 'sound', refMap);
+        for (const a of found) {
+            sounds.push({
+                name: a.name || `sound-${a.id || '?'}`,
+                id: a.id,
+                mediaID: a.mediaID,
+                hasSound: a.hasSound,
+                isRef: a.isRef,
+            });
         }
     }
 
     console.log('[renderAssets]', sprite.name, '→', costumes.length, 'costumes,', sounds.length, 'sounds');
-    console.log('[renderAssets] blockXml length:', blockXml.length,
-        '| costumesStart:', costumesStart, '| costumesEnd:', costumesEnd,
-        '| soundsStart:', soundsStart, '| soundsEnd:', soundsEnd);
+
+    // ── Fallback: if no assets found in blockXml but mediaMap.byName has entries,
+    //    populate from mediaMap directly. This handles projects where projectXml
+    //    has no inline <costume>/<sound> tags and <ref> IDs can't be matched.
+    if (costumes.length === 0 && sounds.length === 0 && Object.keys(mediaMap.byName).length > 0) {
+        console.log('[renderAssets] falling back to mediaMap.byName entries');
+        for (const [name, entry] of Object.entries(mediaMap.byName)) {
+            if (entry.type === 'image') {
+                costumes.push({ name, id: null, mediaID: null, hasImage: true, isRef: false });
+            } else if (entry.type === 'audio') {
+                sounds.push({ name, id: null, mediaID: null, hasSound: true, isRef: false });
+            }
+        }
+        console.log('[renderAssets] after fallback →', costumes.length, 'costumes,', sounds.length, 'sounds');
+    }
+
+    // ── DEBUG PANEL ──────────────────────────────────────────────────────────
+    // Resolve each costume/sound and record what path was used (or 'NONE')
+    function resolveSource(item) {
+        if (item.mediaID && mediaMap.byId[item.mediaID]) return `byId[mediaID=${item.mediaID}] ✓`;
+        if (item.id && mediaMap.byId[item.id]) return `byId[id=${item.id}] ✓`;
+        if (item.name && mediaMap.byName[item.name]) return `byName["${item.name}"] ✓`;
+        return '✗ NOT FOUND';
+    }
+
+    const dbgLines = [];
+    dbgLines.push(`projectXml: ${projData.projectXml ? projData.projectXml.length + ' chars' : 'NULL'}`);
+    dbgLines.push(`mediaXml:   ${projData.mediaXml   ? projData.mediaXml.length   + ' chars' : 'NULL'}`);
+    dbgLines.push(`blockXml:   ${blockXml.length} chars`);
+    dbgLines.push(`mediaMap.byId keys: [${Object.keys(mediaMap.byId).join(', ') || '—'}]`);
+    dbgLines.push(`mediaMap.byName keys: [${Object.keys(mediaMap.byName).map(k=>`"${k}"`).join(', ') || '—'}]`);
+    dbgLines.push('');
+    dbgLines.push(`Costumes (${costumes.length}):`);
+    costumes.forEach((c, i) => {
+        dbgLines.push(`  #${i+1} name="${c.name}" id=${c.id ?? '—'} mediaID=${c.mediaID ?? '—'} hasImage=${c.hasImage} ref=${c.isRef} → ${resolveSource(c)}`);
+    });
+    dbgLines.push('');
+    dbgLines.push(`Sounds (${sounds.length}):`);
+    sounds.forEach((s, i) => {
+        dbgLines.push(`  #${i+1} name="${s.name}" id=${s.id ?? '—'} mediaID=${s.mediaID ?? '—'} hasSound=${s.hasSound} ref=${s.isRef} → ${resolveSource(s)}`);
+    });
+    // Also show first 600 chars of projectXml and mediaXml to see structure
+    dbgLines.push('');
+    dbgLines.push('projectXml[0..600]:');
+    dbgLines.push('  ' + (projData.projectXml || '').slice(0, 600).replace(/\n/g, ' '));
+    dbgLines.push('mediaXml[0..600]:');
+    dbgLines.push('  ' + (projData.mediaXml || '').slice(0, 600).replace(/\n/g, ' '));
+
+    // Show first <costume and <sound tags found anywhere in projectXml / mediaXml
+    const firstCostumeInProj = (projData.projectXml || '').match(/<costume[\s][^>]{0,200}/)?.[0] ?? '—';
+    const firstSoundInProj   = (projData.projectXml || '').match(/<sound[\s][^>]{0,200}/)?.[0] ?? '—';
+    const firstCostumeInMedia = (projData.mediaXml || '').match(/<costume[\s][^>]{0,200}/)?.[0] ?? '—';
+    const firstSoundInMedia   = (projData.mediaXml || '').match(/<sound[\s][^>]{0,200}/)?.[0] ?? '—';
+    dbgLines.push('');
+    dbgLines.push('First <costume in projectXml: ' + firstCostumeInProj);
+    dbgLines.push('First <sound   in projectXml: ' + firstSoundInProj);
+    dbgLines.push('First <costume in mediaXml:   ' + firstCostumeInMedia);
+    dbgLines.push('First <sound   in mediaXml:   ' + firstSoundInMedia);
+
+    console.group('[DEBUG] Asset resolution for', sprite.name);
+    dbgLines.forEach(l => console.log(l));
+    console.groupEnd();
+
+    const dbgPanel = document.createElement('div');
+    dbgPanel.className = 'ov-debug-panel';
+    dbgPanel.innerHTML = `
+        <div class="ov-debug-title">🔍 Debug — ${esc(sprite.name)}</div>
+        <pre class="ov-debug-pre">${esc(dbgLines.join('\n'))}</pre>`;
+    el.appendChild(dbgPanel);
+    // ── END DEBUG PANEL ──────────────────────────────────────────────────────
 
     const total = costumes.length + sounds.length;
     if (badge) badge.textContent = total ? `${total} asset${total !== 1 ? 's' : ''}` : '';
 
     if (!total) {
-        // Debug: show what we found in the blockXml
-        const stripB64 = s => s.replace(/(image|sound|pentrails)="data:[^"]*"/g, '$1="[B64]"');
-        const preview = stripB64(blockXml.slice(0, 800));
-        console.warn('[renderAssets] No assets. Preview:', preview);
-        el.innerHTML = `<div class="ov-empty-state">
-            <span>No costumes or sounds found</span>
-            <div style="font-size:10px;color:#888;margin-top:8px;max-height:150px;overflow:auto;text-align:left;word-break:break-all;padding:4px;background:rgba(0,0,0,0.2);border-radius:4px">
-                blockXml (${blockXml.length} chars):<br>
-                costumesStart=${costumesStart} costumesEnd=${costumesEnd}<br>
-                soundsStart=${soundsStart} soundsEnd=${soundsEnd}<br>
-                first 400 chars: ${esc(preview.slice(0, 400))}
-            </div>
-        </div>`;
+        // Don't wipe el (would destroy debug panel above) — just append a notice
+        const empty = document.createElement('div');
+        empty.className = 'ov-empty-state';
+        empty.innerHTML = '<span>No costumes or sounds found</span>';
+        el.appendChild(empty);
         return;
+    }
+
+    // ── Helper: resolve image data for a costume ──
+    function resolveImageData(costume) {
+        // 1. Inline image in blockXml (hasImage means image= was in the tag)
+        //    We need to find it from the media map by id or name
+        // 2. Via mediaID
+        // 3. Via id
+        // 4. Via name
+        if (costume.hasImage && costume.id && mediaMap.byId[costume.id]) {
+            return mediaMap.byId[costume.id].data;
+        }
+        if (costume.mediaID && mediaMap.byId[costume.mediaID]) {
+            return mediaMap.byId[costume.mediaID].data;
+        }
+        if (costume.id && mediaMap.byId[costume.id]) {
+            return mediaMap.byId[costume.id].data;
+        }
+        if (costume.name && mediaMap.byName[costume.name]) {
+            return mediaMap.byName[costume.name].data;
+        }
+        return null;
     }
 
     // ── Render costumes ──
@@ -559,13 +694,22 @@ function _renderAssetsInner(el, badge, sprite, projData) {
         el.appendChild(head);
 
         costumes.forEach((c, i) => {
+            const imgData = resolveImageData(c);
             const item = document.createElement('div');
             item.className = 'ov-asset-item';
+
+            const thumbHtml = imgData
+                ? `<div class="ov-thumb"><img src="${esc(imgData)}" alt="${esc(c.name)}" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:3px;"/></div>`
+                : `<div class="ov-thumb"><span class="ov-thumb-placeholder">🖼</span></div>`;
+
+            const refTag = c.isRef ? '<span class="ov-ref-tag" title="Shared reference (ref)">ref</span>' : '';
+            const mediaTag = c.mediaID ? '<span class="ov-media-tag" title="Image in media section">media</span>' : '';
+
             item.innerHTML = `
-                <div class="ov-thumb"><span class="ov-thumb-placeholder">🖼</span></div>
+                ${thumbHtml}
                 <div class="ov-asset-info">
                     <div class="ov-asset-name">${esc(c.name)}</div>
-                    <div class="ov-asset-detail">costume ${i + 1}</div>
+                    <div class="ov-asset-detail">costume ${i + 1} ${refTag}${mediaTag}</div>
                 </div>
                 <span class="ov-index-badge costume">#${i + 1}</span>`;
             el.appendChild(item);
@@ -586,18 +730,33 @@ function _renderAssetsInner(el, badge, sprite, projData) {
         el.appendChild(head);
 
         sounds.forEach((s, i) => {
+            // Resolve sound data for playback
+            let soundData = null;
+            if (s.mediaID && mediaMap.byId[s.mediaID]) soundData = mediaMap.byId[s.mediaID].data;
+            else if (s.id && mediaMap.byId[s.id]) soundData = mediaMap.byId[s.id].data;
+            else if (s.name && mediaMap.byName[s.name]) soundData = mediaMap.byName[s.name].data;
+
+            const refTag = s.isRef ? '<span class="ov-ref-tag" title="Shared reference (ref)">ref</span>' : '';
+            const mediaTag = s.mediaID ? '<span class="ov-media-tag" title="Sound in media section">media</span>' : '';
+
             const item = document.createElement('div');
-            item.className = 'ov-asset-item';
-            item.innerHTML = `
-                <div class="ov-sound-thumb">
+            item.className = 'ov-asset-item ov-sound-item';
+
+            // Build audio player if data is available, otherwise show placeholder icon
+            const audioHtml = soundData
+                ? `<audio class="ov-sound-player" controls preload="none" src="${esc(soundData)}"></audio>`
+                : `<div class="ov-sound-thumb">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                             d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/>
                     </svg>
-                </div>
+                   </div>`;
+
+            item.innerHTML = `
+                ${audioHtml}
                 <div class="ov-asset-info">
                     <div class="ov-asset-name">${esc(s.name)}</div>
-                    <div class="ov-asset-detail">sound ${i + 1}</div>
+                    <div class="ov-asset-detail">sound ${i + 1} ${refTag}${mediaTag}</div>
                 </div>
                 <span class="ov-index-badge sound">#${i + 1}</span>`;
             el.appendChild(item);
