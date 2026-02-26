@@ -1,0 +1,29 @@
+=== File length: 135468
+
+=== Testing buildMediaMap ===
+byId entries: 4
+byName entries: 4
+  byId[4] -> type=image, dataLen=942, starts=data:image/png;base64,iVBORw0K
+  byId[5] -> type=image, dataLen=2606, starts=data:image/png;base64,iVBORw0K
+  byId[6] -> type=image, dataLen=1314, starts=data:image/png;base64,iVBORw0K
+  byId[8] -> type=audio, dataLen=128766, starts=data:audio/wav;base64,UklGRiZ5
+  byName["tetris-Sheet"] -> type=image, dataLen=942
+  byName["cactus2"] -> type=image, dataLen=2606
+  byName["banca 2"] -> type=image, dataLen=1314
+  byName["sfx_hit"] -> type=audio, dataLen=128766
+
+=== Testing costume extraction ===
+Found 3 costumes
+  1. "tetris-Sheet" | hasImage: true | id: 4
+  2. "cactus2" | hasImage: true | id: 5
+  3. "banca 2" | hasImage: true | id: 6
+
+Found 1 sounds
+  1. "sfx_hit" | hasSound: true | id: 8
+
+=== Full resolve simulation ===
+  1. "tetris-Sheet" resolved=true (by inline)
+  2. "cactus2" resolved=true (by inline)
+  3. "banca 2" resolved=true (by inline)
+
+DONE

@@ -190,6 +190,20 @@
     color: #4d9fff;
   }
 
+  /* Sound play button */
+  .ov-play-btn {
+    @apply shrink-0 w-7 h-7 rounded-full grid place-items-center
+           transition-colors duration-100 cursor-pointer border-0;
+    background: rgba(77,159,255,.15);
+    color: #4d9fff;
+  }
+  .ov-play-btn:hover {
+    background: rgba(77,159,255,.28);
+  }
+  .ov-play-btn svg {
+    @apply w-3 h-3;
+  }
+
   /* ── Loading spinner ───────────────────────────────────────────── */
   .ov-loading {
     @apply flex items-center justify-center h-full p-8;

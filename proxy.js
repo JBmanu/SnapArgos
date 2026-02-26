@@ -250,6 +250,195 @@ app.listen(PORT, () => {
     console.log(`  ✦ API bridge      →  /snap-api/* → ${SNAP_BASE}\n`);
 });
 
+// ─── DEBUG: dump costumes+sounds per sprite ────────────────────────────────────
+app.get('/snap-api/debug-assets/:name', async (req, res) => {
+    const jar = getJar(req.sid);
+    if (!jar.username) return res.status(401).json({ error: 'Not logged in' });
+    try {
+        const raw = await snapRequest(jar, 'GET',
+            `/projects/${encodeURIComponent(jar.username)}/${encodeURIComponent(req.params.name)}`,
+            { wantsRaw: true }
+        );
+
+        // Inline versions of parsing helpers
+        function exTag(xml, tag) {
+            if (!xml) return null;
+            const startIdx = xml.search(new RegExp(`<${tag}(\\s|>|/)`));
+            if (startIdx === -1) return null;
+            let depth = 0, i = startIdx;
+            while (i < xml.length) {
+                const next = xml.indexOf('<', i);
+                if (next === -1) break;
+                i = next;
+                if (xml.startsWith(`</${tag}>`, i)) {
+                    depth--;
+                    if (depth === 0) return xml.slice(startIdx, i + tag.length + 3);
+                    i++; continue;
+                }
+                if (xml.startsWith(`<${tag}`, i)) {
+                    const afterTag = xml[i + tag.length + 1] ?? '';
+                    if (/[\s>/]/.test(afterTag)) {
+                        let j = i + 1, inQ = null;
+                        while (j < xml.length) {
+                            const c = xml[j];
+                            if (inQ) {
+                                const ci = xml.indexOf(inQ, j + 1);
+                                if (ci === -1) { j = xml.length; break; }
+                                j = ci + 1; inQ = null; continue;
+                            }
+                            if (c === '"' || c === "'") { inQ = c; j++; continue; }
+                            if (c === '>') break;
+                            j++;
+                        }
+                        if (j >= xml.length) { i++; continue; }
+                        if (xml[j - 1] === '/') { if (depth === 0) return xml.slice(i, j + 1); i = j + 1; continue; }
+                        depth++;
+                        i = j + 1; continue;
+                    }
+                }
+                i++;
+            }
+            return null;
+        }
+
+        function exAllAttrs(xml, tagName) {
+            const results = [];
+            const re = new RegExp(`<${tagName}[\\s>]`, 'g');
+            let m;
+            while ((m = re.exec(xml)) !== null) {
+                let start = m.index, i = start + tagName.length + 1, inQ = null;
+                // Find end of opening tag using indexOf for quoted values
+                while (i < xml.length) {
+                    const c = xml[i];
+                    if (inQ) {
+                        const ci = xml.indexOf(inQ, i + 1);
+                        if (ci === -1) { i = xml.length; break; }
+                        i = ci + 1; inQ = null; continue;
+                    }
+                    if (c === '"' || c === "'") { inQ = c; i++; continue; }
+                    if (c === '>') break;
+                    i++;
+                }
+                const tagStr = xml.slice(start, i + 1);
+                // Parse attributes using indexOf-based approach (safe with huge values)
+                const attrs = {};
+                let p = tagStr.indexOf(' ');
+                if (p === -1) { results.push(attrs); re.lastIndex = i + 1; continue; }
+                while (p < tagStr.length) {
+                    while (p < tagStr.length && /\s/.test(tagStr[p])) p++;
+                    if (tagStr[p] === '>' || tagStr[p] === '/' || p >= tagStr.length) break;
+                    let ns = p;
+                    while (p < tagStr.length && tagStr[p] !== '=' && tagStr[p] !== '>' && !/\s/.test(tagStr[p])) p++;
+                    const aName = tagStr.slice(ns, p).trim();
+                    if (!aName) { p++; continue; }
+                    while (p < tagStr.length && /\s/.test(tagStr[p])) p++;
+                    if (tagStr[p] !== '=') { attrs[aName] = ''; continue; }
+                    p++; // skip '='
+                    while (p < tagStr.length && /\s/.test(tagStr[p])) p++;
+                    if (tagStr[p] === '"' || tagStr[p] === "'") {
+                        const q = tagStr[p++];
+                        const ci = tagStr.indexOf(q, p);
+                        if (ci === -1) break;
+                        attrs[aName] = tagStr.slice(p, ci);
+                        p = ci + 1;
+                    } else {
+                        let vs = p;
+                        while (p < tagStr.length && !/[\s>]/.test(tagStr[p])) p++;
+                        attrs[aName] = tagStr.slice(vs, p);
+                    }
+                }
+                results.push(attrs);
+                re.lastIndex = i + 1;
+            }
+            return results;
+        }
+
+        const projectXml = exTag(raw, 'project');
+        const mediaXml = exTag(raw, 'media');
+
+        // Build media map
+        const mediaMap = {};
+        const mediaCostumes = [];
+        const mediaSounds = [];
+        if (mediaXml) {
+            for (const a of exAllAttrs(mediaXml, 'costume')) {
+                const entry = { name: a.name, id: a.id, hasImage: !!a.image, allAttrs: Object.keys(a) };
+                if (a.id) mediaMap[a.id] = { type: 'image', hasData: !!a.image, name: a.name };
+                mediaCostumes.push(entry);
+            }
+            for (const a of exAllAttrs(mediaXml, 'sound')) {
+                const entry = { name: a.name, id: a.id, hasSound: !!a.sound, allAttrs: Object.keys(a) };
+                if (a.id) mediaMap[a.id] = { type: 'audio', hasData: !!a.sound, name: a.name };
+                mediaSounds.push(entry);
+            }
+        }
+
+        // Collect sprites and stages
+        const targets = [];
+        // stage
+        const stageBlock = exTag(projectXml, 'stage');
+        if (stageBlock) {
+            const spritesIdx = stageBlock.indexOf('<sprites');
+            const stageOnly = spritesIdx !== -1 ? stageBlock.slice(0, spritesIdx) + '</stage>' : stageBlock;
+            const stageName = stageBlock.match(/name="([^"]+)"/)?.[1] || 'Stage';
+            const cXml = exTag(stageOnly, 'costumes');
+            const sXml = exTag(stageOnly, 'sounds');
+            targets.push({
+                type: 'stage', name: stageName,
+                costumes: (exAllAttrs(cXml || '', 'costume')).map(a => ({
+                    name: a.name, hasImage: !!a.image, mediaID: a.mediaID, id: a.id,
+                    allAttrs: Object.keys(a),
+                    resolvedInMedia: !!(a.mediaID && mediaMap[a.mediaID]) || !!(a.id && mediaMap[a.id])
+                })),
+                sounds: (exAllAttrs(sXml || '', 'sound')).map(a => ({
+                    name: a.name, hasSound: !!a.sound, mediaID: a.mediaID, id: a.id,
+                    allAttrs: Object.keys(a),
+                    resolvedInMedia: !!(a.mediaID && mediaMap[a.mediaID]) || !!(a.id && mediaMap[a.id])
+                })),
+                rawCostumeTag: cXml ? cXml.replace(/(image|pentrails)="data:[^"]{0,30}[^"]*"/g, '$1="..."').slice(0, 400) : null,
+            });
+        }
+        // sprites
+        for (const sm of (projectXml || '').matchAll(/<sprite\s[^>]*>/g)) {
+            const spName = sm[0].match(/name="([^"]+)"/)?.[1];
+            if (!spName) continue;
+            const start = projectXml.indexOf(sm[0]);
+            const block = exTag(projectXml.slice(start), 'sprite');
+            const cXml = block ? exTag(block, 'costumes') : null;
+            const sXml = block ? exTag(block, 'sounds') : null;
+            targets.push({
+                type: 'sprite', name: spName,
+                costumes: (exAllAttrs(cXml || '', 'costume')).map(a => ({
+                    name: a.name, hasImage: !!a.image, mediaID: a.mediaID, id: a.id,
+                    allAttrs: Object.keys(a),
+                    resolvedInMedia: !!(a.mediaID && mediaMap[a.mediaID]) || !!(a.id && mediaMap[a.id])
+                })),
+                sounds: (exAllAttrs(sXml || '', 'sound')).map(a => ({
+                    name: a.name, hasSound: !!a.sound, mediaID: a.mediaID, id: a.id,
+                    allAttrs: Object.keys(a),
+                    resolvedInMedia: !!(a.mediaID && mediaMap[a.mediaID]) || !!(a.id && mediaMap[a.id])
+                })),
+                rawCostumesPreview: cXml ? cXml.replace(/(image|pentrails)="data:[^"]{0,30}[^"]*"/g, '$1="..."').slice(0, 400) : null,
+            });
+        }
+
+        res.json({
+            rawLength: raw.length,
+            projectXmlLength: projectXml?.length,
+            mediaXmlLength: mediaXml?.length,
+            mediaMapKeys: Object.keys(mediaMap),
+            mediaMapEntries: mediaMap,
+            mediaCostumes,
+            mediaSounds,
+            mediaXmlPreview: mediaXml ? mediaXml.replace(/(image|sound)="data:[^"]{0,30}[^"]*"/g, '$1="[BASE64]"').slice(0, 1000) : null,
+            targets,
+            rawFirstCostumeTag: raw.match(/<costume[^>]{0,300}>/)?.[0]?.replace(/(image|pentrails)="data:[^"]{0,30}[^"]*"/g,'$1="..."') || 'none',
+        });
+    } catch(e) {
+        res.status(500).json({ error: e.message, stack: e.stack });
+    }
+});
+
 // ─── DEBUG: preview what will be saved ────────────────────────────────────────
 app.get('/snap-api/debug-save/:name', async (req, res) => {
     const jar = getJar(req.sid);

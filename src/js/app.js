@@ -1,7 +1,7 @@
 /**
  * app.js — Shell: sidebar, routing, shared credentials
  */
-import { login, getProjectList, state } from './snap-api.js?v=8';
+import { login, getProjectList, state } from './snap-api.js?v=11';
 
 console.log('[app] ✓ shell loaded');
 

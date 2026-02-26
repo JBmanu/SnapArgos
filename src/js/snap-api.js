@@ -61,18 +61,38 @@ async function req(method, path, {body, wantsRaw = false} = {}) {
     console.log(`[snap-api] body (${text.length} chars):`, text.slice(0, 150));
 
     if (!text) throw new Error(`Empty response ${method} ${path} (${res.status})`);
-    if (!wantsRaw || text.startsWith('{"error')) {
-        let j;
-        try { j = JSON.parse(text); } catch (e) {
-            console.error('[snap-api] JSON parse fail:', e.message);
-            throw new Error(text);
+
+    // For wantsRaw: return raw text unless it's a JSON error
+    if (wantsRaw) {
+        // Still check for JSON error envelopes
+        if (text.trimStart().startsWith('{')) {
+            try {
+                const j = JSON.parse(text);
+                if (j.errors) throw new Error(j.errors[0]);
+                if (j.error) throw new Error(j.error);
+                // If it's a JSON-wrapped message, unwrap it
+                if (typeof j.message === 'string') {
+                    console.log('[snap-api] unwrapping JSON message for wantsRaw');
+                    return j.message;
+                }
+            } catch (e) {
+                if (!(e instanceof SyntaxError)) throw e; // re-throw API errors, only swallow parse errors
+            }
         }
-        if (j.errors) throw new Error(j.errors[0]);
-        if (j.error) throw new Error(j.error);
-        return j.message !== undefined ? j.message : j;
+        return text;
     }
-    return text;
+
+    // Non-raw: parse as JSON
+    let j;
+    try { j = JSON.parse(text); } catch (e) {
+        console.error('[snap-api] JSON parse fail:', e.message);
+        throw new Error(text);
+    }
+    if (j.errors) throw new Error(j.errors[0]);
+    if (j.error) throw new Error(j.error);
+    return j.message !== undefined ? j.message : j;
 }
+
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 export async function login(username, password) {
@@ -104,13 +124,40 @@ export async function getProjectList() {
 
 export async function getProject(projectName) {
     assertLoggedIn();
-    const raw = await (IS_LOCAL
+    let raw = await (IS_LOCAL
         ? req('GET', `/project/${enc(projectName)}`, {wantsRaw: true})
         : req('GET', `/projects/${enc(state.username)}/${enc(projectName)}`, {wantsRaw: true}));
-    return {
-        projectXml: extractTag(raw, 'project'),
-        mediaXml: extractTag(raw, 'media') || '<media></media>',
-    };
+
+    // Handle case where response is JSON-wrapped (some cloud endpoints return {"message": "...xml..."})
+    if (typeof raw === 'string' && raw.trimStart().startsWith('{')) {
+        try {
+            const parsed = JSON.parse(raw);
+            if (typeof parsed.message === 'string') {
+                console.log('[getProject] unwrapped JSON message envelope');
+                raw = parsed.message;
+            } else if (typeof parsed === 'string') {
+                raw = parsed;
+            }
+        } catch (e) {
+            // Not JSON — use as-is
+        }
+    }
+
+    console.log('[getProject] raw type:', typeof raw, '| length:', raw?.length,
+        '| starts with:', raw?.slice(0, 30));
+
+    const projectXml = extractTag(raw, 'project');
+    const mediaXml = extractTag(raw, 'media') || '<media></media>';
+    console.log('[getProject] projectXml length:', projectXml?.length,
+        '| mediaXml length:', mediaXml?.length);
+    // Count costume tags with inline images vs mediaID references
+    const inlineCount = (projectXml?.match(/\bimage="data:/g) || []).length;
+    const mediaIDCount = (projectXml?.match(/\bmediaID="/g) || []).length;
+    const mediaImageCount = (mediaXml?.match(/\bimage="data:/g) || []).length;
+    const mediaSoundCount = (mediaXml?.match(/\bsound="data:/g) || []).length;
+    console.log('[getProject] project: inline images:', inlineCount, '| mediaID refs:', mediaIDCount,
+        '| media: images:', mediaImageCount, '| sounds:', mediaSoundCount);
+    return { projectXml, mediaXml };
 }
 
 export async function saveProject(projectName, projectXml, mediaXml, notes = '') {
@@ -158,24 +205,32 @@ export function isFileAccepted(file, selMode, xmlType = null) {
 export function getSpritesFromXml(projectXml) {
     const list = [];
 
-    // Extract all <stage> elements and their child sprites
-    const stageRe = /<stage\s[^>]*>/g;
-    let sm;
-    while ((sm = stageRe.exec(projectXml)) !== null) {
-        const stageTag = sm[0];
-        const stageName = stageTag.match(/\bname="([^"]+)"/)?.[1] || 'Stage';
+    // Find all <stage> elements using indexOf (avoids slow regex on huge pentrails attrs)
+    let searchFrom = 0;
+    while (searchFrom < projectXml.length) {
+        const idx = projectXml.indexOf('<stage', searchFrom);
+        if (idx === -1) break;
+        const after = projectXml[idx + 6];
+        if (after && !/[\s>\/]/.test(after)) { searchFrom = idx + 1; continue; }
+
+        // Extract stage name from opening tag (scan quote-aware to skip pentrails etc.)
+        const stageName = _readAttrFromTag(projectXml, idx, 'name') || 'Stage';
         list.push({ name: stageName, type: 'stage' });
 
         // Extract the full <stage>…</stage> block to find its child sprites
-        const stageBlock = extractTag(projectXml.slice(sm.index), 'stage');
+        const stageBlock = extractTag(projectXml.slice(idx), 'stage');
         if (stageBlock) {
             const spritesBlock = extractTag(stageBlock, 'sprites');
             if (spritesBlock) {
+                // Find <sprite> tags inside <sprites> (sprite opening tags are small, regex OK)
                 for (const spm of spritesBlock.matchAll(/<sprite\s[^>]*>/g)) {
                     const spName = spm[0].match(/\bname="([^"]+)"/)?.[1];
                     if (spName) list.push({ name: spName, type: 'sprite', parentStage: stageName });
                 }
             }
+            searchFrom = idx + stageBlock.length;
+        } else {
+            searchFrom = idx + 1;
         }
     }
 
@@ -187,6 +242,40 @@ export function getSpritesFromXml(projectXml) {
     }
 
     return list;
+}
+
+/**
+ * Read a specific attribute from an XML opening tag starting at `tagStart`.
+ * Uses indexOf to efficiently skip huge attribute values (e.g. pentrails base64).
+ */
+function _readAttrFromTag(xml, tagStart, attrName) {
+    let i = tagStart;
+    let inQ = null;
+    while (i < xml.length) {
+        const c = xml[i];
+        if (inQ) {
+            // Jump to closing quote using indexOf (skips huge base64 blobs in one call)
+            const closeIdx = xml.indexOf(inQ, i + 1);
+            if (closeIdx === -1) return null;
+            i = closeIdx + 1;
+            inQ = null;
+            continue;
+        }
+        if (c === '"' || c === "'") { inQ = c; i++; continue; }
+        if (c === '>') return null; // reached end of opening tag without finding attr
+        // Check if we're at the attribute name (with word boundary: prev char must be whitespace)
+        if (xml.startsWith(attrName + '="', i)) {
+            const prev = i > 0 ? xml[i - 1] : ' ';
+            if (/\s/.test(prev)) {
+                const valStart = i + attrName.length + 2;
+                const valEnd = xml.indexOf('"', valStart);
+                if (valEnd === -1) return null;
+                return xml.slice(valStart, valEnd);
+            }
+        }
+        i++;
+    }
+    return null;
 }
 
 // ── XML mutations ─────────────────────────────────────────────────────────────
@@ -344,7 +433,10 @@ export function extractTag(xml, tag) {
     if (startIdx === -1) return null;
     let depth = 0, i = startIdx;
     while (i < xml.length) {
-        if (xml[i] !== '<') { i++; continue; }
+        // Jump to next '<' instead of scanning char-by-char through base64 blobs
+        const next = xml.indexOf('<', i);
+        if (next === -1) break;
+        i = next;
         if (xml.startsWith(`</${tag}>`, i)) {
             depth--;
             if (depth === 0) return xml.slice(startIdx, i + tag.length + 3);
@@ -353,13 +445,32 @@ export function extractTag(xml, tag) {
         if (xml.startsWith(`<${tag}`, i)) {
             const afterTag = xml[i + tag.length + 1] ?? '';
             if (/[\s>/]/.test(afterTag)) {
-                const closeAngle = xml.indexOf('>', i);
-                if (closeAngle === -1) { i++; continue; }
+                // Find the end of this opening tag, skipping over quoted attribute values
+                let j = i + 1;
+                let inQ = null;
+                while (j < xml.length) {
+                    const c = xml[j];
+                    if (inQ) {
+                        // Use indexOf to jump to closing quote (huge speedup for base64 blobs)
+                        const closeIdx = xml.indexOf(inQ, j + 1);
+                        if (closeIdx === -1) { j = xml.length; break; }
+                        j = closeIdx + 1;
+                        inQ = null;
+                        continue;
+                    }
+                    if (c === '"' || c === "'") { inQ = c; j++; continue; }
+                    if (c === '>') break;
+                    j++;
+                }
+                const closeAngle = j;
+                if (closeAngle >= xml.length) { i++; continue; }
                 if (xml[closeAngle - 1] === '/') {
+                    // self-closing tag
                     if (depth === 0) return xml.slice(i, closeAngle + 1);
                     i = closeAngle + 1; continue;
                 }
                 depth++;
+                i = closeAngle + 1; continue;
             }
         }
         i++;
