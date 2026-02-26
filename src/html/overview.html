@@ -1,13 +1,71 @@
-<!-- pages/overview.html — Overview (placeholder) -->
-<div class="overview-page animate-fade-in">
-  <div class="empty-page">
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" class="empty-icon">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-    </svg>
-    <h2 class="empty-title">Overview</h2>
-    <p class="empty-sub">Project browser coming soon.<br/>Use credentials above to connect, then explore your Snap! account.</p>
+<!-- src/html/overview.html — Overview: browse projects → sprites → assets -->
+<div class="overview-page animate-fade-in" id="overview-page">
+
+  <!-- 3-column browser -->
+  <div class="ov-browser">
+
+    <!-- COL 1: Projects -->
+    <div class="ov-col">
+      <div class="ov-col-head">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+        </svg>
+        <span>Projects</span>
+        <span class="ov-col-badge" id="ov-proj-count"></span>
+      </div>
+      <div class="ov-col-body" id="ov-project-list">
+        <div class="ov-empty-state">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+          </svg>
+          <span>Login &amp; refresh<br/>to load projects</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- COL 2: Sprites / Stage -->
+    <div class="ov-col">
+      <div class="ov-col-head">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-8 4.5L4 7m16 0v10l-8 4.5M4 7v10l8 4.5"/>
+        </svg>
+        <span>Sprites / Stage</span>
+        <span class="ov-col-badge" id="ov-sprite-count"></span>
+      </div>
+      <div class="ov-col-body" id="ov-sprite-list">
+        <div class="ov-empty-state">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-8 4.5L4 7"/>
+          </svg>
+          <span>Select a project</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- COL 3: Assets (Costumes + Sounds) -->
+    <div class="ov-col">
+      <div class="ov-col-head">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <span>Assets</span>
+        <span class="ov-col-badge" id="ov-asset-count"></span>
+      </div>
+      <div class="ov-col-body" id="ov-asset-list">
+        <div class="ov-empty-state">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"/>
+          </svg>
+          <span>Select a sprite or stage</span>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>

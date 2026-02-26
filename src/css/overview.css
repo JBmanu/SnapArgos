@@ -1,0 +1,180 @@
+/* ═══════════════════════════════════════════════════════════════════
+   overview.css — Overview page: 3-column browser (Tailwind)
+   ═══════════════════════════════════════════════════════════════════ */
+
+@layer components {
+
+  /* ── 3-column grid ─────────────────────────────────────────────── */
+  .ov-browser {
+    @apply grid gap-3.5;
+    grid-template-columns: 1fr 1fr 1.2fr;
+    height: calc(100vh - 180px);
+    min-height: 400px;
+  }
+
+  /* ── Column ────────────────────────────────────────────────────── */
+  .ov-col {
+    @apply bg-snap-surface border border-snap-border rounded-xl
+           flex flex-col overflow-hidden;
+  }
+
+  /* ── Column header ─────────────────────────────────────────────── */
+  .ov-col-head {
+    @apply flex items-center gap-2 px-4 py-3
+           border-b border-snap-border shrink-0
+           font-display text-[11px] uppercase tracking-widest text-snap-text;
+  }
+  .ov-col-head svg {
+    @apply w-[15px] h-[15px] text-snap-muted shrink-0;
+  }
+  .ov-col-badge {
+    @apply ml-auto font-display text-[10px] text-snap-muted;
+  }
+
+  /* ── Column body (scrollable) ──────────────────────────────────── */
+  .ov-col-body {
+    @apply flex-1 overflow-y-auto;
+  }
+
+  /* ── Empty state ───────────────────────────────────────────────── */
+  .ov-empty-state {
+    @apply flex flex-col items-center justify-center
+           h-full p-5 text-center
+           font-display text-[11px] leading-relaxed;
+    color: #3a3f52;
+  }
+  .ov-empty-state svg {
+    @apply w-7 h-7 mb-2 opacity-30;
+  }
+
+  /* ── Row (project / sprite) ────────────────────────────────────── */
+  .ov-row {
+    @apply flex items-center gap-2 px-4 cursor-pointer
+           text-[13px] text-snap-muted
+           border-l-2 border-transparent
+           transition-all duration-100;
+    padding-top: 9px;
+    padding-bottom: 9px;
+    font-family: 'Syne', sans-serif;
+  }
+  .ov-row:hover {
+    @apply text-snap-text;
+    background: rgba(255,255,255,.03);
+  }
+  .ov-row.active {
+    @apply text-snap-accent border-l-snap-accent;
+    background: rgba(255,107,53,.06);
+  }
+  .ov-row svg {
+    @apply w-[14px] h-[14px] shrink-0 opacity-50;
+  }
+  .ov-row-name {
+    @apply flex-1 overflow-hidden whitespace-nowrap;
+    text-overflow: ellipsis;
+  }
+  .ov-row-meta {
+    @apply font-display text-[10px] shrink-0;
+    color: #3a3f52;
+  }
+
+  /* sprite rows: blue active */
+  .ov-row.ov-sprite-row.active {
+    border-left-color: #4d9fff;
+    color: #4d9fff;
+    background: rgba(77,159,255,.06);
+  }
+
+  .ov-row-tag {
+    @apply font-display text-[9px] px-1.5 py-px rounded shrink-0;
+    background: rgba(255,255,255,.04);
+    color: #6b7280;
+  }
+
+  /* ═══ ASSETS COLUMN ════════════════════════════════════════════ */
+
+  /* Section header (costumes / sounds) */
+  .ov-section-head {
+    @apply flex items-center gap-1.5 px-4 py-2.5
+           font-display text-[10px] uppercase tracking-widest text-snap-muted
+           sticky top-0 z-[2]
+           bg-snap-surface border-b border-snap-border;
+  }
+  .ov-section-head svg {
+    @apply w-3 h-3;
+  }
+  .ov-section-badge {
+    @apply ml-auto text-[9px];
+    color: #3a3f52;
+  }
+
+  /* ── Asset item (costume or sound) ─────────────────────────────── */
+  .ov-asset-item {
+    @apply flex items-center gap-3 px-4
+           transition-colors duration-100;
+    padding-top: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,.02);
+  }
+  .ov-asset-item:hover {
+    background: rgba(255,255,255,.02);
+  }
+
+  /* Thumbnail */
+  .ov-thumb {
+    @apply w-10 h-10 rounded-md shrink-0
+           bg-snap-bg border border-snap-border
+           grid place-items-center overflow-hidden;
+  }
+  .ov-thumb img {
+    @apply max-w-full max-h-full object-contain;
+    image-rendering: pixelated;
+  }
+  .ov-thumb-placeholder {
+    @apply font-display text-[8px];
+    color: #3a3f52;
+  }
+
+  /* Sound icon */
+  .ov-sound-thumb {
+    @apply w-10 h-10 rounded-md shrink-0
+           grid place-items-center;
+    background: rgba(77,159,255,.08);
+    border: 1px solid rgba(77,159,255,.15);
+  }
+  .ov-sound-thumb svg {
+    @apply w-[18px] h-[18px];
+    color: #4d9fff;
+  }
+
+  /* Asset info */
+  .ov-asset-info {
+    @apply flex-1 min-w-0;
+  }
+  .ov-asset-name {
+    @apply text-[12px] text-snap-text whitespace-nowrap overflow-hidden;
+    text-overflow: ellipsis;
+    font-family: 'Syne', sans-serif;
+  }
+  .ov-asset-detail {
+    @apply font-display text-[10px] mt-px;
+    color: #3a3f52;
+  }
+
+  /* Index badge */
+  .ov-index-badge {
+    @apply font-display text-[9px] px-1.5 py-0.5 rounded shrink-0;
+  }
+  .ov-index-badge.costume {
+    background: rgba(62,207,142,.1);
+    color: #3ecf8e;
+  }
+  .ov-index-badge.sound {
+    background: rgba(77,159,255,.1);
+    color: #4d9fff;
+  }
+
+  /* ── Loading spinner ───────────────────────────────────────────── */
+  .ov-loading {
+    @apply flex items-center justify-center h-full p-8;
+  }
+}

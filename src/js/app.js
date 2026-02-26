@@ -48,6 +48,7 @@ $('sidebar-toggle').addEventListener('click', () => {
 // ═══ PAGE ROUTING ════════════════════════════════════════════════════════════
 const PAGE_TITLES = { overview: 'Overview', uploader: 'Uploader' };
 let uploaderInitFn = null;
+let overviewInitFn = null;
 
 async function navigateTo(page) {
     if (appState.currentPage === page) return;
@@ -70,6 +71,13 @@ async function navigateTo(page) {
     }
 
     // Init page JS
+    if (page === 'overview') {
+        if (!overviewInitFn) {
+            const mod = await import('./overview.js');
+            overviewInitFn = mod.initOverview;
+        }
+        overviewInitFn();
+    }
     if (page === 'uploader') {
         if (!uploaderInitFn) {
             const mod = await import('./uploader-page.js');
