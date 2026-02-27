@@ -121,8 +121,28 @@ body::after {
 
 /* ═══ LAYOUT ══════════════════════════════════════════════════════════════════ */
 .layout {
+    @apply flex flex-col gap-4;
+}
+
+/* Bottom row: files (left) + run sidebar (right) */
+.layout-bottom {
     @apply grid gap-4 items-start;
     grid-template-columns: 1fr 320px;
+}
+
+/* Inside the Files card: drop zone (left) + file list (right) */
+.files-inner {
+    @apply grid gap-4 items-start;
+    grid-template-columns: 1fr 1fr;
+}
+
+.files-drop-col {
+    @apply flex flex-col gap-3;
+}
+
+.files-list-col {
+    @apply flex flex-col gap-2;
+    min-height: 120px;
 }
 
 /* ═══ CARD ════════════════════════════════════════════════════════════════════ */
