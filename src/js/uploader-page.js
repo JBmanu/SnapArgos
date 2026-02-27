@@ -67,6 +67,8 @@ function log(msg, type = 'info') {
 // ═══ PROJECT LIST ════════════════════════════════════════════════════════════
 function renderProjList() {
     const pl = $('project-list'); if (!pl) return; pl.innerHTML = '';
+    const pb = $('proj-count-badge');
+    if (pb) pb.textContent = appState.projects.length ? `${appState.projects.length}` : '';
     if (!appState.projects.length) { pl.innerHTML = '<div class="list-empty">No projects found</div>'; return; }
     appState.projects.forEach(p => {
         const row = document.createElement('div');
@@ -97,6 +99,7 @@ async function loadSpritePanel(projName) {
     spritePanelProj = projName;
     const lbl = $('spr-proj-lbl'); if (lbl) lbl.textContent = `— ${projName}`;
     const sl = $('sprite-list'); if (sl) sl.innerHTML = '<div class="list-empty"><span class="inline-spin"></span></div>';
+    const sb = $('sprite-count-badge'); if (sb) sb.textContent = '';
     try {
         if (!appState.projectCache.has(projName)) appState.projectCache.set(projName, await getProject(projName));
         renderSprList(getSpritesFromXml(appState.projectCache.get(projName).projectXml), projName);
@@ -105,6 +108,12 @@ async function loadSpritePanel(projName) {
 
 function renderSprList(sprites, projName) {
     const sl = $('sprite-list'); if (!sl) return; sl.innerHTML = '';
+    const sb = $('sprite-count-badge');
+    const totalStages  = sprites.filter(s => s.type === 'stage').length;
+    const totalSprites = sprites.filter(s => s.type === 'sprite').length;
+    if (sb) sb.textContent = sprites.length
+        ? `${totalStages} stage${totalStages !== 1 ? 's' : ''}, ${totalSprites} sprite${totalSprites !== 1 ? 's' : ''}`
+        : '';
     sprites.forEach(s => {
         const row = document.createElement('div');
         const locked = selMode === 'projects';
@@ -149,11 +158,13 @@ function updateBanner() {
 }
 
 function updateSelPanel() {
-    const sl = $('sel-list'), se = $('sel-empty-msg'), cs = $('btn-clear-sel'); if (!sl) return;
+    const sl = $('sel-list'), se = $('sel-empty-msg'), cs = $('btn-clear-sel'), scb = $('sel-count-badge'); if (!sl) return;
     sl.querySelectorAll('.sel-chip').forEach(e => e.remove());
     const has = selMode === 'projects' ? selectedProjects.size > 0 : selectedSprites.length > 0;
+    const selCount = selMode === 'projects' ? selectedProjects.size : selectedSprites.length;
     if (se) se.style.display = has ? 'none' : 'block';
     if (cs) cs.style.display = has ? 'inline-flex' : 'none';
+    if (scb) scb.textContent = selCount > 0 ? `${selCount}` : '';
     if (selMode === 'projects') {
         [...selectedProjects].forEach(name => addChip('proj', name, null, () => {
             selectedProjects.delete(name); if (!selectedProjects.size) selMode = 'none';
