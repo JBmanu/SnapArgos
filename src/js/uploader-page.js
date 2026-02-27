@@ -109,8 +109,9 @@ function renderSprList(sprites, projName) {
         const row = document.createElement('div');
         const locked = selMode === 'projects';
         const isSel = selectedSprites.some(x => x.projectName === projName && x.spriteName === s.name);
-        row.className = 'spr-row' + (isSel ? ' sel' : '') + (locked ? ' locked' : '');
-        row.innerHTML = `<svg class="row-icon" fill="currentColor" viewBox="0 0 16 16">${s.type==='stage'?'<rect x="1" y="2" width="14" height="10" rx="1.5"/><path d="M5 14h6"/>':'<circle cx="8" cy="6" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/>'}</svg>
+        const isStage = s.type === 'stage';
+        row.className = 'spr-row' + (isSel ? ' sel' : '') + (locked ? ' locked' : '') + (!isStage ? ' spr-child-row' : '');
+        row.innerHTML = `<svg class="row-icon" fill="currentColor" viewBox="0 0 16 16">${isStage?'<rect x="1" y="2" width="14" height="10" rx="1.5"/><path d="M5 14h6"/>':'<circle cx="8" cy="6" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/>'}</svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</span>
           <span class="row-tag">${s.type}</span>`;
         if (!locked) row.addEventListener('click', () => onSprClick(projName, s, row));
