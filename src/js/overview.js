@@ -821,6 +821,60 @@ function _renderAssetsInner(el, badge, sprite, projData) {
         return null;
     }
 
+    // ── Helper: close all open asset menus ──
+    function closeAllMenus() {
+        el.querySelectorAll('.ov-asset-menu.open').forEach(m => m.classList.remove('open'));
+    }
+    document.addEventListener('click', closeAllMenus, { capture: true, once: false });
+    // Clean up listener when the column is re-rendered
+    const _cleanup = () => document.removeEventListener('click', closeAllMenus, { capture: true });
+    const observer = new MutationObserver((_, obs) => { if (!el.isConnected) { _cleanup(); obs.disconnect(); } });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // ── Helper: build three-dots menu button ──
+    function makeMenuBtn(menuItems) {
+        const wrap = document.createElement('div');
+        wrap.className = 'ov-menu-wrap';
+
+        const btn = document.createElement('button');
+        btn.className = 'ov-menu-btn';
+        btn.title = 'More options';
+        btn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20" width="14" height="14">
+            <circle cx="10" cy="4"  r="1.5"/>
+            <circle cx="10" cy="10" r="1.5"/>
+            <circle cx="10" cy="16" r="1.5"/>
+        </svg>`;
+
+        const menu = document.createElement('div');
+        menu.className = 'ov-asset-menu';
+        menuItems.forEach(({ label, icon, action }) => {
+            const row = document.createElement('button');
+            row.className = 'ov-asset-menu-item';
+            row.innerHTML = `${icon}<span>${label}</span>`;
+            row.addEventListener('click', e => { e.stopPropagation(); closeAllMenus(); action(); });
+            menu.appendChild(row);
+        });
+
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const isOpen = menu.classList.contains('open');
+            closeAllMenus();
+            if (!isOpen) menu.classList.add('open');
+        });
+
+        wrap.appendChild(btn);
+        wrap.appendChild(menu);
+        return wrap;
+    }
+
+    // ── Helper: download a data-URL ──
+    function downloadDataUrl(dataUrl, filename) {
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = filename;
+        a.click();
+    }
+
     // ── Render costumes ──
     if (costumes.length) {
         const head = document.createElement('div');
@@ -854,6 +908,23 @@ function _renderAssetsInner(el, badge, sprite, projData) {
                     <div class="ov-asset-detail">costume ${i + 1} ${ownerTag}${refTag}${mediaTag}</div>
                 </div>
                 <span class="ov-index-badge costume">#${i + 1}</span>`;
+
+            // Three-dots menu (download image if available)
+            if (imgData) {
+                const ext = imgData.startsWith('data:image/svg') ? 'svg'
+                          : imgData.startsWith('data:image/png') ? 'png'
+                          : imgData.startsWith('data:image/jpeg') ? 'jpg' : 'png';
+                const menuBtn = makeMenuBtn([{
+                    label: 'Download image',
+                    icon: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>`,
+                    action: () => downloadDataUrl(imgData, `${c.name}.${ext}`),
+                }]);
+                item.appendChild(menuBtn);
+            }
+
             el.appendChild(item);
         });
     }
@@ -885,23 +956,51 @@ function _renderAssetsInner(el, badge, sprite, projData) {
             const item = document.createElement('div');
             item.className = 'ov-asset-item ov-sound-item';
 
-            // Build audio player if data is available, otherwise show placeholder icon
-            const audioHtml = soundData
-                ? `<audio class="ov-sound-player" controls preload="none" src="${esc(soundData)}"></audio>`
-                : `<div class="ov-sound-thumb">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                            d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/>
-                    </svg>
-                   </div>`;
+            // Top row: icon + info + badge + menu
+            const topRow = document.createElement('div');
+            topRow.className = 'ov-sound-top';
 
-            item.innerHTML = `
-                ${audioHtml}
+            const soundThumb = `<div class="ov-sound-thumb">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                        d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/>
+                </svg>
+            </div>`;
+
+            topRow.innerHTML = `
+                ${soundThumb}
                 <div class="ov-asset-info">
                     <div class="ov-asset-name">${esc(s.name)}</div>
                     <div class="ov-asset-detail">sound ${i + 1} ${ownerTag}${refTag}${mediaTag}</div>
                 </div>
                 <span class="ov-index-badge sound">#${i + 1}</span>`;
+
+            // Three-dots menu (download sound if available)
+            if (soundData) {
+                const ext = soundData.startsWith('data:audio/mpeg') ? 'mp3'
+                          : soundData.startsWith('data:audio/wav')  ? 'wav'
+                          : soundData.startsWith('data:audio/ogg')  ? 'ogg' : 'wav';
+                const menuBtn = makeMenuBtn([{
+                    label: 'Download sound',
+                    icon: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>`,
+                    action: () => downloadDataUrl(soundData, `${s.name}.${ext}`),
+                }]);
+                topRow.appendChild(menuBtn);
+            }
+
+            item.appendChild(topRow);
+
+            // Bottom: audio player (or placeholder if no data)
+            if (soundData) {
+                const playerWrap = document.createElement('div');
+                playerWrap.className = 'ov-sound-player-wrap';
+                playerWrap.innerHTML = `<audio class="ov-sound-player" controls preload="none" src="${esc(soundData)}"></audio>`;
+                item.appendChild(playerWrap);
+            }
+
             el.appendChild(item);
         });
     }
