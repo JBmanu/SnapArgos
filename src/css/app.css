@@ -127,13 +127,13 @@ body::after {
 /* Bottom row: files (left) + run sidebar (right) */
 .layout-bottom {
     @apply grid gap-4 items-start;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: 1fr 380px;
 }
 
 /* Inside the Files card: drop zone (left) + file list (right) */
 .files-inner {
     @apply grid gap-4 items-start;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 2fr 1fr;
 }
 
 .files-drop-col {
