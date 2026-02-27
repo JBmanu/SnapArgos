@@ -6,20 +6,9 @@
    Colors reference the snap-* theme from tailwind.config.js.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── CSS custom properties (still needed for raw values & JS references) ─── */
+/* ── CSS custom properties ─── */
+/* All colors are defined once in tailwind.config.js under theme.extend.colors.snap */
 :root {
-    --bg: #0e0f14;
-    --surface: #16181f;
-    --surface2: #1e2028;
-    --border: #2a2d38;
-    --accent: #ff6b35;
-    --accent2: #ffd166;
-    --green: #3ecf8e;
-    --blue: #4d9fff;
-    --purple: #a78bfa;
-    --text: #e8eaf0;
-    --muted: #6b7280;
-    --muted2: #3a3f52;
     --r: 10px;
 }
 
@@ -63,7 +52,7 @@ body::after {
 /* ── Shimmer bar ───────────────────────────────────────────────────────────── */
 .shimmer {
     @apply h-0.5 fixed top-0 left-0 w-full z-[200];
-    background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent));
+    background: linear-gradient(90deg, theme('colors.snap.accent'), theme('colors.snap.accent2'), theme('colors.snap.accent'));
     background-size: 300%;
     animation: sh 3s linear infinite;
 }
@@ -110,8 +99,7 @@ body::after {
 }
 
 .pulse {
-    @apply w-1.5 h-1.5 rounded-full;
-    background: var(--green);
+    @apply w-1.5 h-1.5 rounded-full bg-snap-green;
     animation: pu 2s ease infinite;
 }
 @keyframes pu {
@@ -196,7 +184,7 @@ body::after {
     box-shadow: 0 0 0 3px rgba(255, 107, 53, .1);
 }
 .input::placeholder {
-    color: var(--muted2);
+    @apply text-snap-muted2;
 }
 
 .input-wrap {
@@ -220,12 +208,12 @@ body::after {
 /* ═══ CREDENTIAL STATUS ═══════════════════════════════════════════════════════ */
 .cred-status {
     @apply flex items-center gap-[7px] mt-2.5 font-display text-[11px]
-           rounded-lg border border-snap-border text-snap-muted transition-all duration-200;
+           rounded-lg border border-snap-border text-snap-muted transition-all duration-200
+           bg-snap-surface2;
     padding: 8px 12px;
-    background: var(--surface2);
 }
 .cred-status.ok {
-    color: var(--green);
+    @apply text-snap-green;
     border-color: rgba(62, 207, 142, .3);
     background: rgba(62, 207, 142, .06);
 }
@@ -240,7 +228,7 @@ body::after {
     background: rgba(248, 113, 113, .06);
 }
 .cred-status.loading {
-    color: var(--blue);
+    @apply text-snap-blue;
     border-color: rgba(77, 159, 255, .3);
     background: rgba(77, 159, 255, .06);
 }
@@ -268,13 +256,11 @@ body::after {
 }
 
 .btn.primary {
-    @apply bg-snap-accent text-white text-xs w-full justify-center rounded-[10px];
-    border-color: var(--accent);
+    @apply bg-snap-accent text-white text-xs w-full justify-center rounded-[10px] border-snap-accent;
     padding: 11px 20px;
 }
 .btn.primary:hover {
-    background: #e04d22;
-    border-color: #e04d22;
+    @apply bg-snap-accent-hover border-snap-accent-hover;
 }
 .btn.primary:disabled {
     @apply opacity-35 cursor-not-allowed;
@@ -283,7 +269,7 @@ body::after {
 .btn.primary .spinner {
     @apply w-3.5 h-3.5 rounded-full hidden;
     border: 2px solid rgba(255, 255, 255, .25);
-    border-top-color: #fff;
+    border-top-color: white;
     animation: sp .6s linear infinite;
 }
 .btn.primary.busy .spinner {
@@ -296,9 +282,8 @@ body::after {
 /* ═══ MODE BANNER ═════════════════════════════════════════════════════════════ */
 .mode-banner {
     @apply flex items-start gap-2 rounded-lg font-display text-[10px]
-           leading-relaxed mb-3 border border-snap-border text-snap-muted;
+           leading-relaxed mb-3 border border-snap-border text-snap-muted bg-snap-surface2;
     padding: 9px 12px;
-    background: var(--surface2);
 }
 .mode-banner.proj {
     @apply text-snap-accent;
@@ -306,7 +291,7 @@ body::after {
     background: rgba(255, 107, 53, .06);
 }
 .mode-banner.spr {
-    color: var(--blue);
+    @apply text-snap-blue;
     border-color: rgba(77, 159, 255, .25);
     background: rgba(77, 159, 255, .06);
 }
@@ -328,8 +313,7 @@ body::after {
 
 .list-empty {
     @apply flex items-center justify-center h-full min-h-[170px]
-           font-display text-[11px] text-center p-4 leading-relaxed;
-    color: var(--muted2);
+           font-display text-[11px] text-center p-4 leading-relaxed text-snap-muted2;
 }
 
 /* ── Column head (icon + label + badge) ──────────────────────────────────── */
@@ -370,7 +354,7 @@ body::after {
     background: rgba(255, 107, 53, .07);
 }
 .spr-row.sel {
-    color: var(--blue);
+    @apply text-snap-blue;
     background: rgba(77, 159, 255, .07);
 }
 
@@ -394,9 +378,9 @@ body::after {
 }
 
 .proj-row.panel-active {
-    color: var(--blue);
+    @apply text-snap-blue;
     background: rgba(77, 159, 255, .08);
-    border-left: 2px solid var(--blue);
+    border-left: 2px solid theme('colors.snap.blue');
 }
 
 .proj-row.browse-only {
@@ -409,10 +393,9 @@ body::after {
 }
 
 .row-browse-tag {
-    @apply font-display text-[9px] rounded-sm shrink-0 ml-auto;
+    @apply font-display text-[9px] rounded-sm shrink-0 ml-auto text-snap-blue;
     padding: 1px 5px;
     background: rgba(77, 159, 255, .1);
-    color: var(--blue);
 }
 
 .row-icon {
@@ -430,9 +413,8 @@ body::after {
 
 /* ═══ SELECTION CHIPS ═════════════════════════════════════════════════════════ */
 .sel-chip {
-    @apply flex items-start gap-1.5 rounded-[7px] border border-snap-border mb-1;
+    @apply flex items-start gap-1.5 rounded-[7px] border border-snap-border mb-1 bg-snap-surface2;
     padding: 5px 8px;
-    background: var(--surface2);
     animation: si .18s ease;
 }
 @keyframes si {
@@ -468,8 +450,7 @@ body::after {
 }
 
 .sel-empty-msg {
-    @apply font-display text-[10px] text-center leading-[1.7];
-    color: var(--muted2);
+    @apply font-display text-[10px] text-center leading-[1.7] text-snap-muted2;
     padding: 30px 10px;
 }
 
@@ -487,15 +468,13 @@ body::after {
 }
 
 .drop-icon {
-    @apply w-7 h-7 mx-auto mb-2;
-    color: var(--muted2);
+    @apply w-7 h-7 mx-auto mb-2 text-snap-muted2;
 }
 .drop-text {
     @apply text-[13px] text-snap-muted;
 }
 .drop-sub {
-    @apply font-display text-[10px] mt-1;
-    color: var(--muted2);
+    @apply font-display text-[10px] mt-1 text-snap-muted2;
 }
 
 /* ═══ FILE CHIPS ══════════════════════════════════════════════════════════════ */
@@ -514,20 +493,16 @@ body::after {
     padding: 2px 6px;
 }
 .ext-img {
-    background: #0d2d1a;
-    color: var(--green);
+    @apply bg-snap-tint-green text-snap-green;
 }
 .ext-audio {
-    background: #0d1e30;
-    color: var(--blue);
+    @apply bg-snap-tint-blue text-snap-blue;
 }
 .ext-xml {
-    @apply text-purple-400;
-    background: #1c1530;
+    @apply text-purple-400 bg-snap-tint-purple;
 }
 .ext-bad {
-    @apply text-red-400;
-    background: #2d1010;
+    @apply text-red-400 bg-snap-tint-red;
 }
 
 .xml-tag {
@@ -557,9 +532,8 @@ body::after {
 /* ═══ DETECT BOX ══════════════════════════════════════════════════════════════ */
 .detect-box {
     @apply rounded-lg font-display text-[10px] leading-[1.8] border border-snap-border
-           text-snap-muted mt-2.5;
+           text-snap-muted mt-2.5 bg-snap-surface2;
     padding: 9px 12px;
-    background: var(--surface2);
 }
 .detect-box strong {
     @apply text-snap-text;
@@ -573,11 +547,11 @@ body::after {
     padding: 10px 12px;
 }
 
-.log-ok   { color: var(--green); }
+.log-ok   { @apply text-snap-green; }
 .log-err  { @apply text-red-400; }
-.log-info { color: var(--blue); }
+.log-info { @apply text-snap-blue; }
 .log-warn { @apply text-snap-accent2; }
-.log-dim  { color: var(--muted2); }
+.log-dim  { @apply text-snap-muted2; }
 
 /* ═══ PROGRESS ════════════════════════════════════════════════════════════════ */
 .prog {
@@ -601,8 +575,8 @@ body::after {
 /* ═══ INLINE SPINNER ══════════════════════════════════════════════════════════ */
 .inline-spin {
     @apply w-3 h-3 rounded-full inline-block align-middle;
-    border: 1.5px solid var(--border);
-    border-top-color: var(--muted);
+    border: 1.5px solid theme('colors.snap.border');
+    border-top-color: theme('colors.snap.muted');
     animation: sp .7s linear infinite;
 }
 

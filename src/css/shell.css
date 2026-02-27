@@ -35,8 +35,7 @@
     @apply flex;
   }
   .pulse-dot {
-    @apply w-1.5 h-1.5 rounded-full animate-pulse-dot;
-    background: #3ecf8e;
+    @apply w-1.5 h-1.5 rounded-full animate-pulse-dot bg-snap-green;
   }
 
   /* ── Credential bar ────────────────────────────────────────────── */
@@ -60,16 +59,15 @@
     @apply flex items-center gap-[7px] mt-2.5
            font-display text-[11px] rounded-lg
            border border-snap-border text-snap-muted
-           transition-all duration-200;
+           transition-all duration-200 bg-snap-surface2;
     padding: 8px 12px;
-    background: #1e2028;
   }
   .cred-status svg,
   .cred-status .inline-spin {
     @apply shrink-0 w-[13px] h-[13px];
   }
   .cred-status.ok {
-    color: #3ecf8e;
+    @apply text-snap-green;
     border-color: rgba(62,207,142,.3);
     background: rgba(62,207,142,.06);
   }
@@ -84,7 +82,7 @@
     background: rgba(248,113,113,.06);
   }
   .cred-status.loading {
-    color: #4d9fff;
+    @apply text-snap-blue;
     border-color: rgba(77,159,255,.3);
     background: rgba(77,159,255,.06);
   }
@@ -100,8 +98,7 @@
     min-height: 50vh;
   }
   .empty-icon {
-    @apply w-12 h-12 mb-4;
-    color: #3a3f52;
+    @apply w-12 h-12 mb-4 text-snap-muted2;
   }
   .empty-title {
     @apply font-display text-xl text-snap-text font-medium mb-2;

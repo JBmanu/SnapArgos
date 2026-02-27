@@ -6,9 +6,9 @@
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
     ::-webkit-scrollbar { width: 4px; height: 4px; }
-    ::-webkit-scrollbar-track { background: #16181f; }
-    ::-webkit-scrollbar-thumb { background: #2a2d38; border-radius: 2px; }
-    ::-webkit-scrollbar-thumb:hover { background: #ff6b35; }
+    ::-webkit-scrollbar-track { background: theme('colors.snap.surface'); }
+    ::-webkit-scrollbar-thumb { background: theme('colors.snap.border'); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: theme('colors.snap.accent'); }
 }
 
 @layer components {
