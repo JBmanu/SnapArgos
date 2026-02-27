@@ -121,7 +121,7 @@ body::after {
 
 /* ═══ LAYOUT ══════════════════════════════════════════════════════════════════ */
 .layout {
-    @apply grid gap-4 max-w-[1200px] mx-auto px-4 pt-5 pb-16 items-start;
+    @apply grid gap-4 items-start;
     grid-template-columns: 1fr 320px;
 }
 
