@@ -50,6 +50,7 @@ function wireEvents() {
     $('browse-link')?.addEventListener('click', e => { e.stopPropagation(); if (selMode !== 'none') fi?.click(); });
     fi?.addEventListener('change', () => { addFiles(fi.files); fi.value = ''; });
     $('btn-clear-sel')?.addEventListener('click', clearSelection);
+    $('btn-clear-files')?.addEventListener('click', () => { files = []; renderFiles(); updateDetectBox(); checkUploadReady(); log('Files cleared', 'dim'); });
     $('btn-upload')?.addEventListener('click', onUploadClick);
     $('btn-download-xml')?.addEventListener('click', onDownloadClick);
     $('btn-clear-log')?.addEventListener('click', () => { const lp = $('log-panel'); if (lp) lp.innerHTML = '<div class="log-dim">// cleared</div>'; });
@@ -70,7 +71,9 @@ function renderProjList() {
     const pb = $('proj-count-badge');
     if (pb) pb.textContent = appState.projects.length ? `${appState.projects.length}` : '';
     if (!appState.projects.length) { pl.innerHTML = '<div class="list-empty">No projects found</div>'; return; }
-    appState.projects.forEach(p => {
+    const sorted = [...appState.projects].sort((a, b) =>
+        a.projectname.localeCompare(b.projectname, undefined, { sensitivity: 'base' }));
+    sorted.forEach(p => {
         const row = document.createElement('div');
         const bo = selMode === 'sprites';
         row.className = 'proj-row' + (selectedProjects.has(p.projectname) ? ' sel' : '') + (bo ? ' browse-only' : '');
@@ -252,6 +255,7 @@ function renderFiles() {
     });
     const b = $('file-count-badge'), v = files.filter(f => f.valid).length;
     if (b) b.textContent = files.length ? `${v}/${files.length} accepted` : '';
+    const cf = $('btn-clear-files'); if (cf) cf.style.display = files.length ? 'inline-flex' : 'none';
 }
 
 function checkUploadReady() {
