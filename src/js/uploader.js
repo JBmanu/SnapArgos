@@ -230,7 +230,7 @@ function renderSprList(sprites, projName) {
         const isSel = selectedSprites.some(x => x.projectName === projName && x.spriteName === s.name);
         row.className = 'spr-row' + (isSel ? ' sel' : '') + (locked ? ' locked' : '');
         row.innerHTML = `<svg class="row-icon" fill="currentColor" viewBox="0 0 16 16">
-            ${s.type === 'stage' ? '<rect x="1" y="2" width="14" height="10" rx="1.5"/><path d="M5 14h6"/>' : '<polygon points="8,2 14,13 2,13"/>'}
+            ${s.type === 'stage' ? '<rect x="1" y="2" width="14" height="10" rx="1.5"/><path d="M5 14h6"/>' : '<circle cx="8" cy="6" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/>'}
           </svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</span>
           <span class="row-tag">${s.type}</span>`;
@@ -357,14 +357,24 @@ function renderFiles() {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
               </svg>`,
+        sprite: `<svg class="file-kind-icon" fill="currentColor" viewBox="0 0 16 16">
+                   <circle cx="8" cy="6" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/>
+                 </svg>`,
+        stage: `<svg class="file-kind-icon" fill="currentColor" viewBox="0 0 16 16">
+                  <rect x="1" y="2" width="14" height="10" rx="1.5"/><path d="M5 14h6"/>
+                </svg>`,
     };
     files.forEach((entry, i) => {
         const {file, xmlType, valid} = entry;
         const e = fileExt(file);
         const kind = extMap[e] || 'xml';
+        // For XML files, use sprite/stage icons when xmlType matches
+        const xmlIconKey = (kind === 'xml' && xmlType === 'sprite') ? 'sprite'
+                         : (kind === 'xml' && xmlType === 'blocks') ? 'stage'
+                         : null;
         const chip = document.createElement('div');
         chip.className = 'file-chip' + (valid ? '' : ' invalid');
-        chip.innerHTML = `${kindIcons[kind] || kindIcons.xml}
+        chip.innerHTML = `${kindIcons[xmlIconKey] || kindIcons[kind] || kindIcons.xml}
           <span class="ext-badge ${valid ? clsMap[kind]||'ext-xml' : 'ext-bad'}">${e}</span>
           <span class="fname">${esc(file.name)}</span>
           ${xmlType ? `<span class="xml-tag">${xmlType}</span>` : ''}

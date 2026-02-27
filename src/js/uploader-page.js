@@ -110,7 +110,7 @@ function renderSprList(sprites, projName) {
         const locked = selMode === 'projects';
         const isSel = selectedSprites.some(x => x.projectName === projName && x.spriteName === s.name);
         row.className = 'spr-row' + (isSel ? ' sel' : '') + (locked ? ' locked' : '');
-        row.innerHTML = `<svg class="row-icon" fill="currentColor" viewBox="0 0 16 16">${s.type==='stage'?'<rect x="1" y="2" width="14" height="10" rx="1.5"/><path d="M5 14h6"/>':'<polygon points="8,2 14,13 2,13"/>'}</svg>
+        row.innerHTML = `<svg class="row-icon" fill="currentColor" viewBox="0 0 16 16">${s.type==='stage'?'<rect x="1" y="2" width="14" height="10" rx="1.5"/><path d="M5 14h6"/>':'<circle cx="8" cy="6" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/>'}</svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.name)}</span>
           <span class="row-tag">${s.type}</span>`;
         if (!locked) row.addEventListener('click', () => onSprClick(projName, s, row));
@@ -217,11 +217,22 @@ function renderFiles() {
     const fl = $('file-list'); if (!fl) return; fl.innerHTML = '';
     const em = {png:'img',jpg:'img',jpeg:'img',gif:'img',svg:'img',mp3:'audio',wav:'audio',ogg:'audio',xml:'xml'};
     const cm = {img:'ext-img',audio:'ext-audio',xml:'ext-xml'};
+    const kindIcons = {
+        img: `<svg class="file-kind-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>`,
+        audio: `<svg class="file-kind-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>`,
+        xml: `<svg class="file-kind-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>`,
+        sprite: `<svg class="file-kind-icon" fill="currentColor" viewBox="0 0 16 16"><circle cx="8" cy="6" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>`,
+        stage: `<svg class="file-kind-icon" fill="currentColor" viewBox="0 0 16 16"><rect x="1" y="2" width="14" height="10" rx="1.5"/><path d="M5 14h6"/></svg>`,
+    };
     files.forEach((entry, i) => {
         const {file, xmlType, valid} = entry; const e = fileExt(file); const kind = em[e]||'xml';
+        const xmlIconKey = (kind === 'xml' && xmlType === 'sprite') ? 'sprite'
+                         : (kind === 'xml' && xmlType === 'stage') ? 'stage'
+                         : null;
         const chip = document.createElement('div');
         chip.className = 'file-chip' + (valid ? '' : ' invalid');
-        chip.innerHTML = `<span class="ext-badge ${valid ? cm[kind]||'ext-xml' : 'ext-bad'}">${e}</span>
+        chip.innerHTML = `${kindIcons[xmlIconKey] || kindIcons[kind] || kindIcons.xml}
+          <span class="ext-badge ${valid ? cm[kind]||'ext-xml' : 'ext-bad'}">${e}</span>
           <span class="fname">${esc(file.name)}</span>${xmlType?`<span class="xml-tag">${xmlType}</span>`:''}${!valid?'<span class="rej-tag">rejected</span>':''}
           <span class="fsize">${(file.size/1024).toFixed(0)} KB</span><button class="del-btn">✕</button>`;
         chip.querySelector('.del-btn').addEventListener('click', () => { files.splice(i,1); renderFiles(); updateDetectBox(); checkUploadReady(); });
