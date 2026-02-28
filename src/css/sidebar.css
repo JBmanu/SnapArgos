@@ -111,11 +111,29 @@
 
   /* ── Main wrapper offset ───────────────────────────────────────── */
   .main-wrap {
-    @apply min-h-screen;
+    @apply min-h-screen flex flex-col;
     margin-left: 220px;
     transition: margin-left .25s cubic-bezier(.4,0,.2,1);
   }
   body.sidebar-collapsed .main-wrap {
     margin-left: 58px;
+  }
+
+  /* ── Sidebar footer (Legal link pinned to bottom) ──────────────── */
+  .sidebar-footer {
+    @apply shrink-0 px-3 pb-3 pt-2;
+    border-top: 1px solid theme('colors.snap.border');
+  }
+  .sidebar-link-legal {
+    @apply text-snap-muted2;
+  }
+  .sidebar-link-legal:hover {
+    @apply text-snap-muted;
+    background: rgba(255,255,255,.02);
+  }
+  .sidebar-link-legal.active {
+    @apply text-snap-muted;
+    background: rgba(255,255,255,.04);
+    border-color: theme('colors.snap.border');
   }
 }

@@ -45,8 +45,10 @@ $('sidebar-toggle').addEventListener('click', () => {
 let uploaderInitFn = null;
 let overviewInitFn = null;
 
-async function navigateTo(page) {
-    if (appState.currentPage === page) return;
+const VALID_PAGES = ['overview', 'uploader', 'legal'];
+
+async function navigateTo(page, section = null) {
+    if (appState.currentPage === page && !section) return;
     appState.currentPage = page;
 
     // Sidebar highlight
@@ -81,10 +83,23 @@ async function navigateTo(page) {
     }
 
     history.replaceState(null, '', `#${page}`);
+
+    // Scroll to section anchor (used by footer deep-links)
+    if (section) {
+        requestAnimationFrame(() => {
+            const el = document.getElementById(`legal-${section}`);
+            el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }
 }
 
 document.querySelectorAll('.sidebar-link').forEach(btn => {
     btn.addEventListener('click', () => navigateTo(btn.dataset.page));
+});
+
+// Footer deep-links
+document.querySelectorAll('.footer-link').forEach(btn => {
+    btn.addEventListener('click', () => navigateTo(btn.dataset.page, btn.dataset.section));
 });
 
 // ═══ PASSWORD EYE ════════════════════════════════════════════════════════════
@@ -178,4 +193,4 @@ $('btn-refresh').addEventListener('click', async () => {
 // ═══ INIT ════════════════════════════════════════════════════════════════════
 setCredStatus('warn','Fill in username and password to connect');
 const startPage = (location.hash.replace('#','') || 'overview');
-navigateTo(['overview','uploader'].includes(startPage) ? startPage : 'overview');
+navigateTo(VALID_PAGES.includes(startPage) ? startPage : 'overview');
