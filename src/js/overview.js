@@ -63,7 +63,12 @@ function renderProjects(projects) {
     });
 }
 
+let _loadToken = 0;
+
 async function onProjectClick(name) {
+    // Bump the token — any in-flight load with an older token will be discarded
+    const myToken = ++_loadToken;
+
     // Evidenzia riga attiva
     const el = $('ov-project-list');
     el.querySelectorAll('.ov-row').forEach(r =>
@@ -78,9 +83,12 @@ async function onProjectClick(name) {
 
     try {
         const data = await getOrFetchProject(name);
+        // If another project was clicked while we were loading, discard this result
+        if (myToken !== _loadToken) return;
         const sprites = getSpritesFromXml(data.projectXml);
         renderSprites(sprites, data);
     } catch (e) {
+        if (myToken !== _loadToken) return;
         spriteEl.innerHTML = `<div class="ov-empty-state"><span style="color:#f87171">${esc(e.message)}</span></div>`;
     }
 }
