@@ -72,8 +72,15 @@ function makeMenuBtn(menuItems) {
 }
 
 // ── Confirm dialog (returns promise) ──
-function confirmAction(title, message) {
-    return new Promise(resolve => {
+/**
+ * Shows a confirm dialog. `onConfirm` is an async function called when the user
+ * clicks "Delete". The dialog stays open (locked, with a spinner) until
+ * `onConfirm` resolves or rejects, preventing any interaction in the meantime.
+ * Returns a Promise that resolves to true when confirmed+done, false if cancelled,
+ * or rejects if onConfirm throws.
+ */
+function confirmAction(title, message, onConfirm) {
+    return new Promise((resolve, reject) => {
         // Remove any existing confirm overlay
         document.getElementById('ov-confirm-overlay')?.remove();
 
@@ -96,21 +103,61 @@ function confirmAction(title, message) {
                 </div>
                 <div class="modal-body" style="padding:16px 20px">
                     <p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:var(--text2,#ccc)">${message}</p>
-                    <div style="display:flex;gap:8px;justify-content:flex-end">
+                    <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">
+                        <span id="ov-confirm-spinner" style="display:none;font-size:12px;color:var(--text2,#ccc);gap:6px;align-items:center">
+                            <svg style="animation:ov-spin 0.8s linear infinite;flex-shrink:0" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
+                            </svg>
+                            Deleting…
+                        </span>
                         <button class="btn" id="ov-confirm-cancel" style="font-size:12px">Cancel</button>
                         <button class="btn" id="ov-confirm-ok" style="font-size:12px;background:var(--danger,#ef4444);color:#fff;border-color:var(--danger,#ef4444)">Delete</button>
                     </div>
                 </div>
             </div>`;
 
-        const close = (result) => { overlay.remove(); resolve(result); };
-        overlay.querySelector('#ov-confirm-cancel').addEventListener('click', () => close(false));
-        overlay.querySelector('#ov-confirm-close').addEventListener('click', () => close(false));
-        overlay.querySelector('#ov-confirm-ok').addEventListener('click', () => close(true));
-        overlay.addEventListener('click', e => { if (e.target === overlay) close(false); });
+        // Inject spinner keyframe once
+        if (!document.getElementById('ov-spin-style')) {
+            const style = document.createElement('style');
+            style.id = 'ov-spin-style';
+            style.textContent = '@keyframes ov-spin { to { transform: rotate(360deg); } }';
+            document.head.appendChild(style);
+        }
+
+        const cancelBtn = overlay.querySelector('#ov-confirm-cancel');
+        const okBtn     = overlay.querySelector('#ov-confirm-ok');
+        const closeBtn  = overlay.querySelector('#ov-confirm-close');
+        const spinner   = overlay.querySelector('#ov-confirm-spinner');
+
+        const setLocked = (locked) => {
+            cancelBtn.disabled = locked;
+            okBtn.disabled     = locked;
+            closeBtn.disabled  = locked;
+            overlay.dataset.locked = locked ? '1' : '';
+            spinner.style.display  = locked ? 'inline-flex' : 'none';
+            okBtn.style.display    = locked ? 'none' : '';
+        };
+
+        const cancel = () => { overlay.remove(); resolve(false); };
+
+        cancelBtn.addEventListener('click', cancel);
+        closeBtn.addEventListener('click', cancel);
+        overlay.addEventListener('click', e => { if (e.target === overlay && !overlay.dataset.locked) cancel(); });
+
+        okBtn.addEventListener('click', async () => {
+            setLocked(true);
+            try {
+                await onConfirm();
+                overlay.remove();
+                resolve(true);
+            } catch (err) {
+                overlay.remove();
+                reject(err);
+            }
+        });
 
         document.body.appendChild(overlay);
-        overlay.querySelector('#ov-confirm-ok').focus();
+        okBtn.focus();
     });
 }
 
@@ -224,23 +271,26 @@ async function onProjectClick(name) {
 
 // ── Delete project from cloud ──
 async function onDeleteProject(projectName) {
-    const ok = await confirmAction('Delete Project',
-        `Are you sure you want to delete <strong>"${esc(projectName)}"</strong> from your Snap! cloud account?<br><br>This action cannot be undone.`);
-    if (!ok) return;
     try {
-        await deleteProject(projectName);
-        appState.projectCache.delete(projectName);
-        // Remove from local projects list and re-render
-        appState.projects = appState.projects.filter(p => p.projectname !== projectName);
-        if (_currentProjectName === projectName) {
-            _currentProjectName = null;
-            _currentProjData = null;
-            _currentSprite = null;
-            resetSprites();
-            clearAssets();
-        }
-        renderProjects(appState.projects);
-        bus.emit('projects-loaded', appState.projects);
+        await confirmAction(
+            'Delete Project',
+            `Are you sure you want to delete <strong>"${esc(projectName)}"</strong> from your Snap! cloud account?<br><br>This action cannot be undone.`,
+            async () => {
+                await deleteProject(projectName);
+                appState.projectCache.delete(projectName);
+                // Remove from local projects list and re-render
+                appState.projects = appState.projects.filter(p => p.projectname !== projectName);
+                if (_currentProjectName === projectName) {
+                    _currentProjectName = null;
+                    _currentProjData = null;
+                    _currentSprite = null;
+                    resetSprites();
+                    clearAssets();
+                }
+                renderProjects(appState.projects);
+                bus.emit('projects-loaded', appState.projects);
+            }
+        );
     } catch (e) {
         console.error('[overview] delete project error:', e);
         alert('Failed to delete project: ' + e.message);
@@ -318,29 +368,30 @@ function onSpriteClick(sprite, projData) {
 
 // ── Delete sprite or stage from project XML, save to cloud, refresh ──
 async function onDeleteSpriteOrStage(sprite, projectName, message) {
-    const ok = await confirmAction(
-        sprite.type === 'stage' ? 'Delete Stage' : 'Delete Sprite',
-        message);
-    if (!ok) return;
-
     try {
-        const data = await getOrFetchProject(projectName);
-        let newXml;
-        if (sprite.type === 'stage') {
-            newXml = deleteStageXml(data.projectXml, sprite.name, sprite.xmlOffset);
-        } else {
-            newXml = deleteSpriteXml(data.projectXml, sprite.name, sprite.xmlOffset);
-        }
-        await saveProject(projectName, newXml, data.mediaXml);
-        // Refresh: invalidate cache, re-fetch, re-render sprites
-        appState.projectCache.delete(projectName);
-        const freshData = await getOrFetchProject(projectName);
-        _currentProjData = freshData;
-        const freshSprites = getSpritesFromXml(freshData.projectXml);
-        renderSprites(freshSprites, freshData, projectName);
-        // Clear assets column since the deleted item might have been selected
-        _currentSprite = null;
-        clearAssets();
+        await confirmAction(
+            sprite.type === 'stage' ? 'Delete Stage' : 'Delete Sprite',
+            message,
+            async () => {
+                const data = await getOrFetchProject(projectName);
+                let newXml;
+                if (sprite.type === 'stage') {
+                    newXml = deleteStageXml(data.projectXml, sprite.name, sprite.xmlOffset);
+                } else {
+                    newXml = deleteSpriteXml(data.projectXml, sprite.name, sprite.xmlOffset);
+                }
+                await saveProject(projectName, newXml, data.mediaXml);
+                // Refresh: invalidate cache, re-fetch, re-render sprites
+                appState.projectCache.delete(projectName);
+                const freshData = await getOrFetchProject(projectName);
+                _currentProjData = freshData;
+                const freshSprites = getSpritesFromXml(freshData.projectXml);
+                renderSprites(freshSprites, freshData, projectName);
+                // Clear assets column since the deleted item might have been selected
+                _currentSprite = null;
+                clearAssets();
+            }
+        );
     } catch (e) {
         console.error('[overview] delete sprite/stage error:', e);
         alert('Failed to delete: ' + e.message);
@@ -966,25 +1017,28 @@ function _renderAssetsInner(el, badge, sprite, projData) {
     // ── Delete costume handler ──
     async function onDeleteCostume(costumeIndex, costumeName) {
         if (!_currentProjectName) return;
-        const ok = await confirmAction('Delete Costume',
-            `Delete costume <strong>"${esc(costumeName)}"</strong> (#${costumeIndex + 1})?<br><br>This will save the modified project to Snap! cloud.`);
-        if (!ok) return;
         try {
-            const data = await getOrFetchProject(_currentProjectName);
-            const newXml = deleteCostumeXml(data.projectXml, sprite.name, costumeIndex, sprite.xmlOffset);
-            await saveProject(_currentProjectName, newXml, data.mediaXml);
-            appState.projectCache.delete(_currentProjectName);
-            const freshData = await getOrFetchProject(_currentProjectName);
-            _currentProjData = freshData;
-            // Re-resolve sprite offset and re-render assets
-            const freshSprites = getSpritesFromXml(freshData.projectXml);
-            const freshSprite = _findFreshSprite(freshSprites, sprite);
-            if (freshSprite) {
-                _currentSprite = freshSprite;
-                renderAssets(freshSprite, freshData);
-            }
-            // Also refresh sprites column
-            renderSprites(freshSprites, freshData, _currentProjectName);
+            await confirmAction(
+                'Delete Costume',
+                `Delete costume <strong>"${esc(costumeName)}"</strong> (#${costumeIndex + 1})?<br><br>This will save the modified project to Snap! cloud.`,
+                async () => {
+                    const data = await getOrFetchProject(_currentProjectName);
+                    const newXml = deleteCostumeXml(data.projectXml, sprite.name, costumeIndex, sprite.xmlOffset);
+                    await saveProject(_currentProjectName, newXml, data.mediaXml);
+                    appState.projectCache.delete(_currentProjectName);
+                    const freshData = await getOrFetchProject(_currentProjectName);
+                    _currentProjData = freshData;
+                    // Re-resolve sprite offset and re-render assets
+                    const freshSprites = getSpritesFromXml(freshData.projectXml);
+                    const freshSprite = _findFreshSprite(freshSprites, sprite);
+                    if (freshSprite) {
+                        _currentSprite = freshSprite;
+                        renderAssets(freshSprite, freshData);
+                    }
+                    // Also refresh sprites column
+                    renderSprites(freshSprites, freshData, _currentProjectName);
+                }
+            );
         } catch (e) {
             console.error('[overview] delete costume error:', e);
             alert('Failed to delete costume: ' + e.message);
@@ -994,23 +1048,26 @@ function _renderAssetsInner(el, badge, sprite, projData) {
     // ── Delete sound handler ──
     async function onDeleteSound(soundIndex, soundName) {
         if (!_currentProjectName) return;
-        const ok = await confirmAction('Delete Sound',
-            `Delete sound <strong>"${esc(soundName)}"</strong> (#${soundIndex + 1})?<br><br>This will save the modified project to Snap! cloud.`);
-        if (!ok) return;
         try {
-            const data = await getOrFetchProject(_currentProjectName);
-            const newXml = deleteSoundXml(data.projectXml, sprite.name, soundIndex, sprite.xmlOffset);
-            await saveProject(_currentProjectName, newXml, data.mediaXml);
-            appState.projectCache.delete(_currentProjectName);
-            const freshData = await getOrFetchProject(_currentProjectName);
-            _currentProjData = freshData;
-            const freshSprites = getSpritesFromXml(freshData.projectXml);
-            const freshSprite = _findFreshSprite(freshSprites, sprite);
-            if (freshSprite) {
-                _currentSprite = freshSprite;
-                renderAssets(freshSprite, freshData);
-            }
-            renderSprites(freshSprites, freshData, _currentProjectName);
+            await confirmAction(
+                'Delete Sound',
+                `Delete sound <strong>"${esc(soundName)}"</strong> (#${soundIndex + 1})?<br><br>This will save the modified project to Snap! cloud.`,
+                async () => {
+                    const data = await getOrFetchProject(_currentProjectName);
+                    const newXml = deleteSoundXml(data.projectXml, sprite.name, soundIndex, sprite.xmlOffset);
+                    await saveProject(_currentProjectName, newXml, data.mediaXml);
+                    appState.projectCache.delete(_currentProjectName);
+                    const freshData = await getOrFetchProject(_currentProjectName);
+                    _currentProjData = freshData;
+                    const freshSprites = getSpritesFromXml(freshData.projectXml);
+                    const freshSprite = _findFreshSprite(freshSprites, sprite);
+                    if (freshSprite) {
+                        _currentSprite = freshSprite;
+                        renderAssets(freshSprite, freshData);
+                    }
+                    renderSprites(freshSprites, freshData, _currentProjectName);
+                }
+            );
         } catch (e) {
             console.error('[overview] delete sound error:', e);
             alert('Failed to delete sound: ' + e.message);
