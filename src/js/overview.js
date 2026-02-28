@@ -4,7 +4,8 @@
  * FIX: Uses xmlOffset from getSpritesFromXml to precisely identify the correct
  * XML block for each sprite/stage, even when multiple share the same name.
  */
-import { getProject, getSpritesFromXml, extractTag } from './snap-api.js?v=14';
+import { getProject, getSpritesFromXml, extractTag, saveProject, deleteProject,
+         deleteSpriteXml, deleteStageXml, deleteCostumeXml, deleteSoundXml } from './snap-api.js?v=14';
 import { appState, bus } from './app.js';
 
 let _projectsHandler = null;
@@ -12,6 +13,114 @@ let _projectsHandler = null;
 const $ = id => document.getElementById(id);
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+// Track current selection so delete actions can refresh properly
+let _currentProjectName = null;
+let _currentSprite = null;
+let _currentProjData = null;
+
+// ── SVG icons used in menus ──
+const ICON_DELETE = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+</svg>`;
+const ICON_DOWNLOAD = `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13">
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+</svg>`;
+
+// ── Global close all menus (works across all 3 columns) ──
+function closeAllMenus() {
+    document.querySelectorAll('.ov-asset-menu.open').forEach(m => m.classList.remove('open'));
+}
+document.addEventListener('click', closeAllMenus, { capture: true });
+
+// ── Reusable three-dots menu builder ──
+function makeMenuBtn(menuItems) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ov-menu-wrap';
+
+    const btn = document.createElement('button');
+    btn.className = 'ov-menu-btn';
+    btn.title = 'More options';
+    btn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20" width="14" height="14">
+        <circle cx="10" cy="4"  r="1.5"/>
+        <circle cx="10" cy="10" r="1.5"/>
+        <circle cx="10" cy="16" r="1.5"/>
+    </svg>`;
+
+    const menu = document.createElement('div');
+    menu.className = 'ov-asset-menu';
+    menuItems.forEach(({ label, icon, action, danger }) => {
+        const row = document.createElement('button');
+        row.className = 'ov-asset-menu-item' + (danger ? ' ov-menu-danger' : '');
+        row.innerHTML = `${icon}<span>${label}</span>`;
+        row.addEventListener('click', e => { e.stopPropagation(); closeAllMenus(); action(); });
+        menu.appendChild(row);
+    });
+
+    btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const isOpen = menu.classList.contains('open');
+        closeAllMenus();
+        if (!isOpen) menu.classList.add('open');
+    });
+
+    wrap.appendChild(btn);
+    wrap.appendChild(menu);
+    return wrap;
+}
+
+// ── Confirm dialog (returns promise) ──
+function confirmAction(title, message) {
+    return new Promise(resolve => {
+        // Remove any existing confirm overlay
+        document.getElementById('ov-confirm-overlay')?.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'ov-confirm-overlay';
+        overlay.className = 'modal-overlay open';
+        overlay.setAttribute('role', 'dialog');
+        overlay.innerHTML = `
+            <div class="modal-box" style="max-width:380px">
+                <div class="modal-header">
+                    <div class="modal-title-row">
+                        ${ICON_DELETE.replace('width="13"','width="18"').replace('height="13"','height="18"')}
+                        <span class="modal-title">${title}</span>
+                    </div>
+                    <button class="modal-close" id="ov-confirm-close" title="Close">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body" style="padding:16px 20px">
+                    <p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:var(--text2,#ccc)">${message}</p>
+                    <div style="display:flex;gap:8px;justify-content:flex-end">
+                        <button class="btn" id="ov-confirm-cancel" style="font-size:12px">Cancel</button>
+                        <button class="btn" id="ov-confirm-ok" style="font-size:12px;background:var(--danger,#ef4444);color:#fff;border-color:var(--danger,#ef4444)">Delete</button>
+                    </div>
+                </div>
+            </div>`;
+
+        const close = (result) => { overlay.remove(); resolve(result); };
+        overlay.querySelector('#ov-confirm-cancel').addEventListener('click', () => close(false));
+        overlay.querySelector('#ov-confirm-close').addEventListener('click', () => close(false));
+        overlay.querySelector('#ov-confirm-ok').addEventListener('click', () => close(true));
+        overlay.addEventListener('click', e => { if (e.target === overlay) close(false); });
+
+        document.body.appendChild(overlay);
+        overlay.querySelector('#ov-confirm-ok').focus();
+    });
+}
+
+// ── Download helper ──
+function downloadDataUrl(dataUrl, filename) {
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    a.click();
+}
 
 export function initOverview() {
     console.log('[overview] init');
@@ -61,7 +170,21 @@ function renderProjects(projects) {
             </svg>
             <span class="ov-row-name">${esc(p.projectname)}</span>
             <span class="ov-row-meta">${date}</span>`;
-        row.addEventListener('click', () => onProjectClick(p.projectname));
+
+        // Three-dots menu with Delete
+        const menuBtn = makeMenuBtn([{
+            label: 'Delete project',
+            icon: ICON_DELETE,
+            danger: true,
+            action: () => onDeleteProject(p.projectname),
+        }]);
+        row.appendChild(menuBtn);
+
+        row.addEventListener('click', e => {
+            // Don't navigate if clicking the menu
+            if (e.target.closest('.ov-menu-wrap')) return;
+            onProjectClick(p.projectname);
+        });
         el.appendChild(row);
     });
 }
@@ -71,6 +194,8 @@ let _loadToken = 0;
 async function onProjectClick(name) {
     // Bump the token — any in-flight load with an older token will be discarded
     const myToken = ++_loadToken;
+    _currentProjectName = name;
+    _currentSprite = null;
 
     // Evidenzia riga attiva
     const el = $('ov-project-list');
@@ -88,16 +213,42 @@ async function onProjectClick(name) {
         const data = await getOrFetchProject(name);
         // If another project was clicked while we were loading, discard this result
         if (myToken !== _loadToken) return;
+        _currentProjData = data;
         const sprites = getSpritesFromXml(data.projectXml);
-        renderSprites(sprites, data);
+        renderSprites(sprites, data, name);
     } catch (e) {
         if (myToken !== _loadToken) return;
         spriteEl.innerHTML = `<div class="ov-empty-state"><span style="color:#f87171">${esc(e.message)}</span></div>`;
     }
 }
 
+// ── Delete project from cloud ──
+async function onDeleteProject(projectName) {
+    const ok = await confirmAction('Delete Project',
+        `Are you sure you want to delete <strong>"${esc(projectName)}"</strong> from your Snap! cloud account?<br><br>This action cannot be undone.`);
+    if (!ok) return;
+    try {
+        await deleteProject(projectName);
+        appState.projectCache.delete(projectName);
+        // Remove from local projects list and re-render
+        appState.projects = appState.projects.filter(p => p.projectname !== projectName);
+        if (_currentProjectName === projectName) {
+            _currentProjectName = null;
+            _currentProjData = null;
+            _currentSprite = null;
+            resetSprites();
+            clearAssets();
+        }
+        renderProjects(appState.projects);
+        bus.emit('projects-loaded', appState.projects);
+    } catch (e) {
+        console.error('[overview] delete project error:', e);
+        alert('Failed to delete project: ' + e.message);
+    }
+}
+
 // ═══ COL 2: SPRITES ══════════════════════════════════════════════════════════
-function renderSprites(sprites, projData) {
+function renderSprites(sprites, projData, projectName) {
     const el = $('ov-sprite-list');
     const badge = $('ov-sprite-count');
     if (!el) return;
@@ -126,12 +277,32 @@ function renderSprites(sprites, projData) {
             </svg>
             <span class="ov-row-name">${esc(s.name)}</span>
             <span class="ov-row-tag">${s.type}</span>`;
-        row.addEventListener('click', () => onSpriteClick(s, projData));
+
+        // Three-dots menu with Delete
+        const deleteLabel = isStage ? 'Delete stage' : 'Delete sprite';
+        const deleteMsg = isStage
+            ? `Are you sure you want to delete stage <strong>"${esc(s.name)}"</strong> and all its sprites?<br><br>This will save the modified project to Snap! cloud.`
+            : `Are you sure you want to delete sprite <strong>"${esc(s.name)}"</strong>?<br><br>This will save the modified project to Snap! cloud.`;
+
+        const menuBtn = makeMenuBtn([{
+            label: deleteLabel,
+            icon: ICON_DELETE,
+            danger: true,
+            action: () => onDeleteSpriteOrStage(s, projectName, deleteMsg),
+        }]);
+        row.appendChild(menuBtn);
+
+        row.addEventListener('click', e => {
+            if (e.target.closest('.ov-menu-wrap')) return;
+            onSpriteClick(s, projData);
+        });
         el.appendChild(row);
     });
 }
 
 function onSpriteClick(sprite, projData) {
+    _currentSprite = sprite;
+    _currentProjData = projData;
     const el = $('ov-sprite-list');
     el.querySelectorAll('.ov-row').forEach(r => {
         // Use xmlOffset for precise matching when available
@@ -143,6 +314,37 @@ function onSpriteClick(sprite, projData) {
         r.classList.toggle('active', match);
     });
     renderAssets(sprite, projData);
+}
+
+// ── Delete sprite or stage from project XML, save to cloud, refresh ──
+async function onDeleteSpriteOrStage(sprite, projectName, message) {
+    const ok = await confirmAction(
+        sprite.type === 'stage' ? 'Delete Stage' : 'Delete Sprite',
+        message);
+    if (!ok) return;
+
+    try {
+        const data = await getOrFetchProject(projectName);
+        let newXml;
+        if (sprite.type === 'stage') {
+            newXml = deleteStageXml(data.projectXml, sprite.name, sprite.xmlOffset);
+        } else {
+            newXml = deleteSpriteXml(data.projectXml, sprite.name, sprite.xmlOffset);
+        }
+        await saveProject(projectName, newXml, data.mediaXml);
+        // Refresh: invalidate cache, re-fetch, re-render sprites
+        appState.projectCache.delete(projectName);
+        const freshData = await getOrFetchProject(projectName);
+        _currentProjData = freshData;
+        const freshSprites = getSpritesFromXml(freshData.projectXml);
+        renderSprites(freshSprites, freshData, projectName);
+        // Clear assets column since the deleted item might have been selected
+        _currentSprite = null;
+        clearAssets();
+    } catch (e) {
+        console.error('[overview] delete sprite/stage error:', e);
+        alert('Failed to delete: ' + e.message);
+    }
 }
 
 // ═══ COL 3: ASSETS (costumi + suoni) ═════════════════════════════════════════
@@ -761,57 +963,58 @@ function _renderAssetsInner(el, badge, sprite, projData) {
         return null;
     }
 
-    // ── Helper: close all open asset menus ──
-    function closeAllMenus() {
-        el.querySelectorAll('.ov-asset-menu.open').forEach(m => m.classList.remove('open'));
-    }
-    document.addEventListener('click', closeAllMenus, { capture: true, once: false });
-    const _cleanup = () => document.removeEventListener('click', closeAllMenus, { capture: true });
-    const observer = new MutationObserver((_, obs) => { if (!el.isConnected) { _cleanup(); obs.disconnect(); } });
-    observer.observe(document.body, { childList: true, subtree: true });
-
-    // ── Helper: build three-dots menu button ──
-    function makeMenuBtn(menuItems) {
-        const wrap = document.createElement('div');
-        wrap.className = 'ov-menu-wrap';
-
-        const btn = document.createElement('button');
-        btn.className = 'ov-menu-btn';
-        btn.title = 'More options';
-        btn.innerHTML = `<svg fill="currentColor" viewBox="0 0 20 20" width="14" height="14">
-            <circle cx="10" cy="4"  r="1.5"/>
-            <circle cx="10" cy="10" r="1.5"/>
-            <circle cx="10" cy="16" r="1.5"/>
-        </svg>`;
-
-        const menu = document.createElement('div');
-        menu.className = 'ov-asset-menu';
-        menuItems.forEach(({ label, icon, action }) => {
-            const row = document.createElement('button');
-            row.className = 'ov-asset-menu-item';
-            row.innerHTML = `${icon}<span>${label}</span>`;
-            row.addEventListener('click', e => { e.stopPropagation(); closeAllMenus(); action(); });
-            menu.appendChild(row);
-        });
-
-        btn.addEventListener('click', e => {
-            e.stopPropagation();
-            const isOpen = menu.classList.contains('open');
-            closeAllMenus();
-            if (!isOpen) menu.classList.add('open');
-        });
-
-        wrap.appendChild(btn);
-        wrap.appendChild(menu);
-        return wrap;
+    // ── Delete costume handler ──
+    async function onDeleteCostume(costumeIndex, costumeName) {
+        if (!_currentProjectName) return;
+        const ok = await confirmAction('Delete Costume',
+            `Delete costume <strong>"${esc(costumeName)}"</strong> (#${costumeIndex + 1})?<br><br>This will save the modified project to Snap! cloud.`);
+        if (!ok) return;
+        try {
+            const data = await getOrFetchProject(_currentProjectName);
+            const newXml = deleteCostumeXml(data.projectXml, sprite.name, costumeIndex, sprite.xmlOffset);
+            await saveProject(_currentProjectName, newXml, data.mediaXml);
+            appState.projectCache.delete(_currentProjectName);
+            const freshData = await getOrFetchProject(_currentProjectName);
+            _currentProjData = freshData;
+            // Re-resolve sprite offset and re-render assets
+            const freshSprites = getSpritesFromXml(freshData.projectXml);
+            const freshSprite = _findFreshSprite(freshSprites, sprite);
+            if (freshSprite) {
+                _currentSprite = freshSprite;
+                renderAssets(freshSprite, freshData);
+            }
+            // Also refresh sprites column
+            renderSprites(freshSprites, freshData, _currentProjectName);
+        } catch (e) {
+            console.error('[overview] delete costume error:', e);
+            alert('Failed to delete costume: ' + e.message);
+        }
     }
 
-    // ── Helper: download a data-URL ──
-    function downloadDataUrl(dataUrl, filename) {
-        const a = document.createElement('a');
-        a.href = dataUrl;
-        a.download = filename;
-        a.click();
+    // ── Delete sound handler ──
+    async function onDeleteSound(soundIndex, soundName) {
+        if (!_currentProjectName) return;
+        const ok = await confirmAction('Delete Sound',
+            `Delete sound <strong>"${esc(soundName)}"</strong> (#${soundIndex + 1})?<br><br>This will save the modified project to Snap! cloud.`);
+        if (!ok) return;
+        try {
+            const data = await getOrFetchProject(_currentProjectName);
+            const newXml = deleteSoundXml(data.projectXml, sprite.name, soundIndex, sprite.xmlOffset);
+            await saveProject(_currentProjectName, newXml, data.mediaXml);
+            appState.projectCache.delete(_currentProjectName);
+            const freshData = await getOrFetchProject(_currentProjectName);
+            _currentProjData = freshData;
+            const freshSprites = getSpritesFromXml(freshData.projectXml);
+            const freshSprite = _findFreshSprite(freshSprites, sprite);
+            if (freshSprite) {
+                _currentSprite = freshSprite;
+                renderAssets(freshSprite, freshData);
+            }
+            renderSprites(freshSprites, freshData, _currentProjectName);
+        } catch (e) {
+            console.error('[overview] delete sound error:', e);
+            alert('Failed to delete sound: ' + e.message);
+        }
     }
 
     // ── Render costumes ──
@@ -848,20 +1051,25 @@ function _renderAssetsInner(el, badge, sprite, projData) {
                 </div>
                 <span class="ov-index-badge costume">#${i + 1}</span>`;
 
+            // Menu: Download (if image available) + Delete
+            const menuItems = [];
             if (imgData) {
                 const ext = imgData.startsWith('data:image/svg') ? 'svg'
                           : imgData.startsWith('data:image/png') ? 'png'
                           : imgData.startsWith('data:image/jpeg') ? 'jpg' : 'png';
-                const menuBtn = makeMenuBtn([{
+                menuItems.push({
                     label: 'Download image',
-                    icon: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                    </svg>`,
+                    icon: ICON_DOWNLOAD,
                     action: () => downloadDataUrl(imgData, `${c.name}.${ext}`),
-                }]);
-                item.appendChild(menuBtn);
+                });
             }
+            menuItems.push({
+                label: 'Delete costume',
+                icon: ICON_DELETE,
+                danger: true,
+                action: () => onDeleteCostume(i, c.name),
+            });
+            item.appendChild(makeMenuBtn(menuItems));
 
             el.appendChild(item);
         });
@@ -911,20 +1119,25 @@ function _renderAssetsInner(el, badge, sprite, projData) {
                 </div>
                 <span class="ov-index-badge sound">#${i + 1}</span>`;
 
+            // Menu: Download (if sound available) + Delete
+            const menuItems = [];
             if (soundData) {
                 const ext = soundData.startsWith('data:audio/mpeg') ? 'mp3'
                           : soundData.startsWith('data:audio/wav')  ? 'wav'
                           : soundData.startsWith('data:audio/ogg')  ? 'ogg' : 'wav';
-                const menuBtn = makeMenuBtn([{
+                menuItems.push({
                     label: 'Download sound',
-                    icon: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="13" height="13">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                    </svg>`,
+                    icon: ICON_DOWNLOAD,
                     action: () => downloadDataUrl(soundData, `${s.name}.${ext}`),
-                }]);
-                topRow.appendChild(menuBtn);
+                });
             }
+            menuItems.push({
+                label: 'Delete sound',
+                icon: ICON_DELETE,
+                danger: true,
+                action: () => onDeleteSound(i, s.name),
+            });
+            topRow.appendChild(makeMenuBtn(menuItems));
 
             item.appendChild(topRow);
 
@@ -941,6 +1154,28 @@ function _renderAssetsInner(el, badge, sprite, projData) {
 }
 
 // ── Helper ──
+/**
+ * After mutating XML, find the sprite that best matches the original one
+ * (by name + type, using closest xmlOffset as tiebreaker).
+ */
+function _findFreshSprite(freshSprites, originalSprite) {
+    const candidates = freshSprites.filter(s =>
+        s.name === originalSprite.name && s.type === originalSprite.type);
+    if (candidates.length === 0) return null;
+    if (candidates.length === 1) return candidates[0];
+    // Multiple: pick closest to original offset
+    if (originalSprite.xmlOffset != null) {
+        let best = candidates[0];
+        let bestDist = Math.abs(best.xmlOffset - originalSprite.xmlOffset);
+        for (let i = 1; i < candidates.length; i++) {
+            const dist = Math.abs(candidates[i].xmlOffset - originalSprite.xmlOffset);
+            if (dist < bestDist) { best = candidates[i]; bestDist = dist; }
+        }
+        return best;
+    }
+    return candidates[0];
+}
+
 async function getOrFetchProject(name) {
     const data = await getProject(name);
     appState.projectCache.set(name, data);

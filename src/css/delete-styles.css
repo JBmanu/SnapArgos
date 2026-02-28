@@ -1,0 +1,26 @@
+/* ── Add these rules to your CSS for the delete functionality ── */
+
+/* Danger menu items (red text) */
+.ov-asset-menu-item.ov-menu-danger {
+    color: #ef4444;
+}
+.ov-asset-menu-item.ov-menu-danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+}
+
+/* Make menu button visible on project/sprite rows too (not just assets) */
+.ov-row .ov-menu-wrap {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* Prevent row highlight shifting when menu is inside */
+.ov-row {
+    position: relative;
+}
+
+/* Ensure the CSS variable for danger color exists (fallback) */
+:root {
+    --danger: #ef4444;
+}

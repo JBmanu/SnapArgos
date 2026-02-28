@@ -195,6 +195,153 @@ export async function saveProject(projectName, projectXml, mediaXml, notes = '')
         : req('POST', `/projects/${enc(state.username)}/${enc(projectName)}`, {body});
 }
 
+// ── Delete project from cloud ─────────────────────────────────────────────────
+export async function deleteProject(projectName) {
+    assertLoggedIn();
+    return IS_LOCAL
+        ? req('DELETE', `/project/${enc(projectName)}`)
+        : req('DELETE', `/projects/${enc(state.username)}/${enc(projectName)}`);
+}
+
+// ── Delete a sprite from projectXml ───────────────────────────────────────────
+export function deleteSpriteXml(projectXml, targetName, xmlOffset = null) {
+    const start = findTargetStart(projectXml, targetName, xmlOffset);
+    const block = extractTag(projectXml.slice(start), 'sprite');
+    if (!block) throw new Error(`Cannot find <sprite> "${targetName}"`);
+    return projectXml.slice(0, start) + projectXml.slice(start + block.length);
+}
+
+// ── Delete a stage from projectXml ────────────────────────────────────────────
+// In Snap!, each "stage" in the overview is actually a <scene> that contains
+// a <stage>. So we must delete the entire <scene>…</scene> block, then update
+// the <scenes select="N"> attribute so the project stays valid.
+export function deleteStageXml(projectXml, targetName, xmlOffset = null) {
+    // 1. Find the <stage> tag using the normal offset-based lookup
+    const stageStart = findTargetStart(projectXml, targetName, xmlOffset);
+
+    // 2. Walk backwards from stageStart to find the enclosing <scene …> tag
+    const sceneStart = _findEnclosingScene(projectXml, stageStart);
+    if (sceneStart === -1) {
+        // Fallback: maybe it's a single-scene project — just remove <stage>
+        const block = extractTag(projectXml.slice(stageStart), 'stage');
+        if (!block) throw new Error(`Cannot find <stage> "${targetName}"`);
+        return projectXml.slice(0, stageStart) + projectXml.slice(stageStart + block.length);
+    }
+
+    // 3. Extract the full <scene>…</scene> block from sceneStart
+    const sceneBlock = extractTag(projectXml.slice(sceneStart), 'scene');
+    if (!sceneBlock) throw new Error(`Cannot find <scene> enclosing stage "${targetName}"`);
+
+    // 4. Remove the scene
+    let result = projectXml.slice(0, sceneStart) + projectXml.slice(sceneStart + sceneBlock.length);
+
+    // 5. Update <scenes select="N"> — clamp to valid range
+    result = _fixScenesSelect(result);
+
+    return result;
+}
+
+// Walk backwards from `pos` to find the start of the <scene ...> tag that encloses it.
+function _findEnclosingScene(xml, pos) {
+    // Search backwards for '<scene ' or '<scene>'
+    let i = pos - 1;
+    while (i >= 0) {
+        if (xml[i] === '<' && (xml.startsWith('<scene ', i) || xml.startsWith('<scene>', i))) {
+            // Make sure this scene actually contains `pos` (not a prior, already-closed scene)
+            const sceneBlock = extractTag(xml.slice(i), 'scene');
+            if (sceneBlock && i + sceneBlock.length > pos) {
+                return i; // This scene encompasses the target position
+            }
+        }
+        i--;
+    }
+    return -1;
+}
+
+// After removing a scene, fix the <scenes select="N"> attribute
+function _fixScenesSelect(xml) {
+    const m = xml.match(/<scenes\s+select="(\d+)"/);
+    if (!m) return xml;
+    const oldSelect = parseInt(m[1], 10);
+
+    // Count remaining <scene> opening tags
+    let count = 0;
+    let idx = 0;
+    while (true) {
+        idx = xml.indexOf('<scene', idx);
+        if (idx === -1) break;
+        const ch = xml[idx + 6]; // char after '<scene'
+        if (ch === ' ' || ch === '>') count++;
+        idx += 6;
+    }
+
+    // Clamp select to valid range (1-based)
+    const newSelect = Math.max(1, Math.min(oldSelect, count));
+    return xml.replace(/<scenes\s+select="\d+"/, `<scenes select="${newSelect}"`);
+}
+
+// ── Delete a costume from a sprite/stage ──────────────────────────────────────
+// costumeIndex is 0-based
+export function deleteCostumeXml(projectXml, targetName, costumeIndex, xmlOffset = null) {
+    const start = findTargetStart(projectXml, targetName, xmlOffset);
+    const tag = targetTag(targetName);
+    const blockXml = extractTag(projectXml.slice(start), tag);
+    if (!blockXml) throw new Error(`Cannot find <${tag}> "${targetName}"`);
+
+    const costumesXml = extractTag(blockXml, 'costumes');
+    if (!costumesXml) throw new Error(`<costumes> not found in "${targetName}"`);
+    const listXml = extractTag(costumesXml, 'list');
+    if (!listXml) throw new Error(`<list> not found in <costumes> of "${targetName}"`);
+
+    // Extract all <item> blocks from the list
+    const items = _extractAllItems(listXml);
+    if (costumeIndex < 0 || costumeIndex >= items.length) throw new Error(`Costume index ${costumeIndex} out of range`);
+
+    // Remove the item at costumeIndex
+    const itemToRemove = items[costumeIndex];
+    const newList = listXml.replace(itemToRemove, '');
+    const newCostumes = costumesXml.replace(listXml, newList);
+    const newBlock = blockXml.replace(costumesXml, newCostumes);
+    return projectXml.slice(0, start) + newBlock + projectXml.slice(start + blockXml.length);
+}
+
+// ── Delete a sound from a sprite/stage ────────────────────────────────────────
+// soundIndex is 0-based
+export function deleteSoundXml(projectXml, targetName, soundIndex, xmlOffset = null) {
+    const start = findTargetStart(projectXml, targetName, xmlOffset);
+    const tag = targetTag(targetName);
+    const blockXml = extractTag(projectXml.slice(start), tag);
+    if (!blockXml) throw new Error(`Cannot find <${tag}> "${targetName}"`);
+
+    const soundsXml = extractTag(blockXml, 'sounds');
+    if (!soundsXml) throw new Error(`<sounds> not found in "${targetName}"`);
+    const listXml = extractTag(soundsXml, 'list');
+    if (!listXml) throw new Error(`<list> not found in <sounds> of "${targetName}"`);
+
+    const items = _extractAllItems(listXml);
+    if (soundIndex < 0 || soundIndex >= items.length) throw new Error(`Sound index ${soundIndex} out of range`);
+
+    const itemToRemove = items[soundIndex];
+    const newList = listXml.replace(itemToRemove, '');
+    const newSounds = soundsXml.replace(listXml, newList);
+    const newBlock = blockXml.replace(soundsXml, newSounds);
+    return projectXml.slice(0, start) + newBlock + projectXml.slice(start + blockXml.length);
+}
+
+// ── Helper: extract all <item>...</item> blocks from a <list> ─────────────────
+function _extractAllItems(listXml) {
+    const items = [];
+    let remaining = listXml;
+    while (true) {
+        const item = extractTag(remaining, 'item');
+        if (!item) break;
+        items.push(item);
+        const idx = remaining.indexOf(item);
+        remaining = remaining.slice(idx + item.length);
+    }
+    return items;
+}
+
 // ── File type helpers ─────────────────────────────────────────────────────────
 export const EXTS_IMG = ['png', 'jpg', 'jpeg', 'gif', 'svg'];
 export const EXTS_AUDIO = ['mp3', 'wav', 'ogg'];
