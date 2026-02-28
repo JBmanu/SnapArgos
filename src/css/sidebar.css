@@ -16,20 +16,52 @@
     width: 58px;
   }
 
+  /* ── Header row (logo left + toggle right) ────────────────────── */
+  .sidebar-header {
+    @apply flex items-center justify-between shrink-0;
+    height: 50px;
+    transition: justify-content .25s;
+  }
+  body.sidebar-collapsed .sidebar-header {
+    @apply justify-center;
+  }
+
   /* ── Logo area ─────────────────────────────────────────────────── */
   .sidebar-logo {
-    @apply flex items-center gap-2.5 px-4
-           border-b border-snap-border shrink-0;
-    height: 50px;
+    @apply flex items-center gap-2.5 px-4 overflow-hidden;
+    transition: opacity .15s, max-width .25s, padding .25s;
+    max-width: 180px;
+  }
+  body.sidebar-collapsed .sidebar-logo {
+    @apply opacity-0 pointer-events-none;
+    max-width: 0;
+    padding: 0;
   }
   .logo-mark {
     @apply w-7 h-7 min-w-[28px] bg-snap-accent rounded-[7px]
            grid place-items-center
-           font-display text-[11px] text-white font-medium;
+           font-display text-[11px] text-white font-medium shrink-0;
   }
   .logo-name {
     @apply font-display text-[13px] text-snap-text tracking-wide font-medium
            whitespace-nowrap;
+  }
+
+  /* ── Toggle button ─────────────────────────────────────────────── */
+  .sidebar-toggle {
+    @apply flex items-center justify-center w-11 h-full shrink-0
+           border-none bg-transparent text-snap-muted cursor-pointer
+           transition-colors duration-150;
+  }
+  .sidebar-toggle:hover {
+    @apply text-snap-text;
+  }
+  .sidebar-toggle svg {
+    @apply w-4 h-4;
+    transition: transform .25s cubic-bezier(.4,0,.2,1);
+  }
+  body.sidebar-collapsed .sidebar-toggle svg {
+    transform: rotate(180deg);
   }
 
   /* ── Nav links ─────────────────────────────────────────────────── */
@@ -68,23 +100,6 @@
     transition: opacity .1s, max-width .25s;
   }
 
-  /* ── Toggle button ─────────────────────────────────────────────── */
-  .sidebar-toggle {
-    @apply flex items-center justify-center h-11
-           border-none border-t border-snap-border
-           bg-transparent text-snap-muted cursor-pointer shrink-0
-           transition-colors duration-150;
-  }
-  .sidebar-toggle:hover {
-    @apply text-snap-text;
-  }
-  .sidebar-toggle svg {
-    @apply w-4 h-4;
-    transition: transform .25s cubic-bezier(.4,0,.2,1);
-  }
-  body.sidebar-collapsed .sidebar-toggle svg {
-    transform: rotate(180deg);
-  }
 
   /* ── Main wrapper offset ───────────────────────────────────────── */
   .main-wrap {
