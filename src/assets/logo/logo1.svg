@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 140" width="140" height="140">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF"/>
+      <stop offset="100%" style="stop-color:#F0F4F8"/>
+    </linearGradient>
+    <linearGradient id="headGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F5CBA7"/>
+      <stop offset="100%" style="stop-color:#E59866"/>
+    </linearGradient>
+    <linearGradient id="shirtGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E74C3C"/>
+      <stop offset="100%" style="stop-color:#C0392B"/>
+    </linearGradient>
+    <linearGradient id="lensGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#A8EDEA" stop-opacity="0.85"/>
+      <stop offset="100%" style="stop-color:#4FC3F7" stop-opacity="0.85"/>
+    </linearGradient>
+    <linearGradient id="irisGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4FC3F7"/>
+      <stop offset="100%" style="stop-color:#0288D1"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="2" dy="3" stdDeviation="3" flood-color="#00000050"/>
+    </filter>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+      <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="circleClip">
+      <circle cx="70" cy="70" r="57"/>
+    </clipPath>
+    <clipPath id="eyeClip">
+      <ellipse cx="70" cy="95" rx="19" ry="14"/>
+    </clipPath>
+  </defs>
+
+  <circle cx="70" cy="70" r="58" fill="url(#bgGrad)" filter="url(#shadow)"/>
+
+
+
+  <rect x="55" y="126" width="30" height="10" rx="4" fill="#C0392B" clip-path="url(#circleClip)"/>
+  <rect x="55" y="126" width="30" height="10" rx="4" fill="none" stroke="#922B21" stroke-width="1.5" clip-path="url(#circleClip)"/>
+
+  <rect x="38" y="130" width="64" height="24" rx="8" fill="url(#shirtGrad)" clip-path="url(#circleClip)"/>
+  <rect x="38" y="130" width="64" height="24" rx="8" fill="none" stroke="#922B21" stroke-width="2" clip-path="url(#circleClip)"/>
+  <rect x="44" y="134" width="20" height="4" rx="2" fill="white" opacity="0.15" clip-path="url(#circleClip)"/>
+
+  <path d="M48,126 Q26,104 24,78 Q22,52 36,32" stroke="#2C1810" stroke-width="15" fill="none" stroke-linecap="round" clip-path="url(#circleClip)"/>
+  <path d="M48,126 Q26,104 24,78 Q22,52 36,32" stroke="url(#headGrad)" stroke-width="11" fill="none" stroke-linecap="round" clip-path="url(#circleClip)"/>
+  <path d="M48,126 Q26,104 24,78 Q22,52 36,32" stroke="#C0784A" stroke-width="4" fill="none" stroke-linecap="round" clip-path="url(#circleClip)" opacity="0.4"/>
+  <circle cx="36" cy="32" r="9" fill="#2C1810" clip-path="url(#circleClip)"/>
+  <circle cx="36" cy="32" r="7" fill="#F5CBA7" clip-path="url(#circleClip)"/>
+  <circle cx="36" cy="32" r="7" fill="none" stroke="#2C1810" stroke-width="1.5" clip-path="url(#circleClip)"/>
+
+  <path d="M92,126 Q112,108 114,86" stroke="#2C1810" stroke-width="15" fill="none" stroke-linecap="round" clip-path="url(#circleClip)"/>
+  <path d="M92,126 Q112,108 114,86" stroke="url(#headGrad)" stroke-width="11" fill="none" stroke-linecap="round" clip-path="url(#circleClip)"/>
+  <path d="M92,126 Q112,108 114,86" stroke="#C0784A" stroke-width="4" fill="none" stroke-linecap="round" clip-path="url(#circleClip)" opacity="0.4"/>
+  <circle cx="114" cy="86" r="9" fill="#2C1810" clip-path="url(#circleClip)"/>
+  <circle cx="114" cy="86" r="7" fill="#F5CBA7" clip-path="url(#circleClip)"/>
+  <circle cx="114" cy="86" r="7" fill="none" stroke="#2C1810" stroke-width="1.5" clip-path="url(#circleClip)"/>
+
+  <rect x="62" y="116" width="16" height="14" rx="5" fill="#2C1810" clip-path="url(#circleClip)"/>
+  <rect x="63" y="117" width="14" height="12" rx="4" fill="#F5CBA7" clip-path="url(#circleClip)"/>
+
+  <rect x="34" y="60" width="72" height="58" rx="14" fill="#2C1810" clip-path="url(#circleClip)"/>
+  <rect x="36" y="62" width="68" height="54" rx="12" fill="url(#headGrad)" clip-path="url(#circleClip)"/>
+  <rect x="42" y="66" width="24" height="6" rx="3" fill="white" opacity="0.2" clip-path="url(#circleClip)"/>
+
+  <rect x="50" y="54" width="32" height="10" rx="5" fill="#2C1810" clip-path="url(#circleClip)"/>
+  <rect x="51" y="55" width="30" height="8" rx="4" fill="#E59866" clip-path="url(#circleClip)"/>
+
+  <rect x="34" y="58" width="72" height="18" rx="10" fill="#1A0A00" clip-path="url(#circleClip)"/>
+  <ellipse cx="46" cy="58" rx="8" ry="12" fill="#1A0A00" clip-path="url(#circleClip)"/>
+  <ellipse cx="60" cy="55" rx="7" ry="13" fill="#1A0A00" clip-path="url(#circleClip)"/>
+  <ellipse cx="75" cy="54" rx="7" ry="14" fill="#1A0A00" clip-path="url(#circleClip)"/>
+  <ellipse cx="89" cy="57" rx="7" ry="12" fill="#1A0A00" clip-path="url(#circleClip)"/>
+  <ellipse cx="62" cy="60" rx="10" ry="3" fill="#3D1A0A" opacity="0.7" clip-path="url(#circleClip)"/>
+
+  <ellipse cx="33" cy="90" rx="5" ry="7" fill="#2C1810" clip-path="url(#circleClip)"/>
+  <ellipse cx="33" cy="90" rx="3.5" ry="5.5" fill="#F5CBA7" clip-path="url(#circleClip)"/>
+  <ellipse cx="33" cy="90" rx="2" ry="3.5" fill="#E59866" clip-path="url(#circleClip)"/>
+
+  <rect x="46" y="73" width="48" height="9" rx="5" fill="#1A0A00" clip-path="url(#circleClip)" transform="rotate(-3,70,77)"/>
+  <rect x="47" y="74" width="46" height="7" rx="4" fill="#2C1810" clip-path="url(#circleClip)" transform="rotate(-3,70,77)"/>
+
+  <ellipse cx="70" cy="97" rx="22" ry="17" fill="#C0784A" opacity="0.4" clip-path="url(#circleClip)"/>
+  <ellipse cx="70" cy="95" rx="20" ry="15" fill="white" clip-path="url(#circleClip)"/>
+  <circle cx="70" cy="95" r="12" fill="url(#irisGrad)" clip-path="url(#eyeClip)" filter="url(#glow)"/>
+  <circle cx="70" cy="95" r="6" fill="#0D0D1A" clip-path="url(#eyeClip)"/>
+  <circle cx="76" cy="90" r="3.5" fill="white" opacity="0.9" clip-path="url(#eyeClip)"/>
+  <circle cx="74" cy="98" r="1.5" fill="white" opacity="0.5" clip-path="url(#eyeClip)"/>
+  <ellipse cx="70" cy="95" rx="20" ry="15" fill="none" stroke="#2C1810" stroke-width="2" clip-path="url(#circleClip)"/>
+
+  <path d="M67,108 Q70,113 73,110" stroke="#C0784A" stroke-width="2" fill="none" stroke-linecap="round" clip-path="url(#circleClip)"/>
+  <path d="M60,116 Q68,122 80,117" stroke="#2C1810" stroke-width="2.5" fill="none" stroke-linecap="round" clip-path="url(#circleClip)"/>
+
+  <circle cx="15" cy="20" r="14" fill="#4FC3F7" opacity="0.2" clip-path="url(#circleClip)"/>
+  <circle cx="15" cy="20" r="13" fill="none" stroke="#0D0D1A" stroke-width="4" clip-path="url(#circleClip)"/>
+  <circle cx="15" cy="20" r="13" fill="none" stroke="#4FC3F7" stroke-width="2" clip-path="url(#circleClip)"/>
+  <circle cx="15" cy="20" r="10" fill="url(#lensGrad)" clip-path="url(#circleClip)"/>
+  <ellipse cx="11" cy="15" rx="4" ry="2.5" fill="white" opacity="0.6" clip-path="url(#circleClip)"/>
+  <line x1="24" y1="30" x2="37" y2="43" stroke="#0D0D1A" stroke-width="6" stroke-linecap="round" clip-path="url(#circleClip)"/>
+  <line x1="24" y1="30" x2="37" y2="43" stroke="#4FC3F7" stroke-width="3.5" stroke-linecap="round" clip-path="url(#circleClip)"/>
+
+  <circle cx="70" cy="70" r="58" fill="none" stroke="#4ECDC4" stroke-width="2.5" opacity="0.5"/>
+  <circle cx="70" cy="70" r="58" fill="none" stroke="white" stroke-width="1" opacity="0.15"/>
+  <circle cx="70" cy="12" r="3" fill="#4ECDC4" opacity="0.8"/>
+  <circle cx="70" cy="128" r="3" fill="#E74C3C" opacity="0.8"/>
+  <circle cx="12" cy="70" r="3" fill="#4FC3F7" opacity="0.8"/>
+  <circle cx="128" cy="70" r="3" fill="#FF8E53" opacity="0.8"/>
+</svg>
