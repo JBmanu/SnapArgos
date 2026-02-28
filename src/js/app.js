@@ -41,6 +41,20 @@ $('sidebar-toggle').addEventListener('click', () => {
         document.body.classList.contains('sidebar-collapsed'));
 });
 
+// ═══ DONATE MODAL ════════════════════════════════════════════════════════════
+const donateModal = $('donate-modal');
+const openModal  = () => donateModal.classList.add('open');
+const closeModal = () => donateModal.classList.remove('open');
+
+$('btn-donate').addEventListener('click', openModal);
+$('donate-modal-close').addEventListener('click', closeModal);
+donateModal.addEventListener('click', e => {
+    if (e.target === donateModal) closeModal(); // click outside box
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+});
+
 // ═══ PAGE ROUTING ════════════════════════════════════════════════════════════
 let uploaderInitFn = null;
 let overviewInitFn = null;
@@ -62,7 +76,7 @@ async function navigateTo(page, section = null) {
     appState.currentPage = page;
 
     // Sidebar highlight
-    document.querySelectorAll('.sidebar-link').forEach(btn =>
+    document.querySelectorAll('.sidebar-link[data-page]').forEach(btn =>
         btn.classList.toggle('active', btn.dataset.page === page));
 
     // Load HTML
@@ -111,6 +125,7 @@ async function navigateTo(page, section = null) {
 }
 
 document.querySelectorAll('.sidebar-link').forEach(btn => {
+    if (!btn.dataset.page) return; // donate button has no data-page
     btn.addEventListener('click', () => navigateTo(btn.dataset.page));
 });
 

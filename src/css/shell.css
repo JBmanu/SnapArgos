@@ -203,4 +203,84 @@
   .legal-placeholder {
     @apply italic text-snap-muted2;
   }
+
+  /* ── Donate modal ──────────────────────────────────────────────── */
+  .modal-overlay {
+    @apply fixed inset-0 z-[500] flex items-center justify-center
+           pointer-events-none opacity-0;
+    background: rgba(0,0,0,.55);
+    backdrop-filter: blur(4px);
+    transition: opacity .2s ease;
+  }
+  .modal-overlay.open {
+    @apply pointer-events-auto opacity-100;
+  }
+  .modal-box {
+    @apply relative flex flex-col rounded-2xl border border-snap-border
+           bg-snap-surface w-full mx-4;
+    max-width: 360px;
+    box-shadow: 0 24px 64px rgba(0,0,0,.5);
+    transform: translateY(12px) scale(.97);
+    transition: transform .22s cubic-bezier(.4,0,.2,1);
+  }
+  .modal-overlay.open .modal-box {
+    transform: translateY(0) scale(1);
+  }
+  .modal-header {
+    @apply flex items-center justify-between px-5 py-4
+           border-b border-snap-border shrink-0;
+  }
+  .modal-title-row {
+    @apply flex items-center gap-2;
+  }
+  .modal-title-icon {
+    @apply w-[15px] h-[15px] text-snap-accent shrink-0;
+  }
+  .modal-title {
+    @apply font-display text-[13px] text-snap-text font-semibold;
+  }
+  .modal-close {
+    @apply flex items-center justify-center w-6 h-6 rounded-md
+           bg-transparent border-none cursor-pointer
+           text-snap-muted2 transition-colors duration-150;
+  }
+  .modal-close:hover {
+    @apply text-snap-text;
+    background: rgba(255,255,255,.06);
+  }
+  .modal-close svg {
+    @apply w-[14px] h-[14px];
+  }
+  .modal-body {
+    @apply flex flex-col items-center gap-4 px-5 py-5;
+  }
+  .modal-desc {
+    @apply font-display text-[11px] text-snap-muted leading-relaxed text-center;
+  }
+  .donate-qr-wrap {
+    @apply flex flex-col items-center gap-2;
+  }
+  .donate-qr {
+    @apply rounded-xl border border-snap-border;
+    width: 180px;
+    height: 180px;
+    object-fit: cover;
+  }
+  .donate-qr-label {
+    @apply font-display text-[10px] text-snap-muted2;
+  }
+  .donate-paypal-btn {
+    @apply flex items-center justify-center gap-2 w-full
+           font-display text-[12px] font-medium text-white
+           rounded-lg px-4 py-2.5
+           transition-all duration-150;
+    background: rgba(255,107,53,1);
+  }
+  .donate-paypal-btn:hover {
+    background: rgba(255,130,70,1);
+    box-shadow: 0 0 0 2px rgba(255,107,53,.35);
+  }
+  .donate-paypal-btn svg {
+    @apply w-[14px] h-[14px] shrink-0;
+  }
 }

@@ -46,8 +46,15 @@
     </button>
   </nav>
 
-  <!-- Bottom: Legal link -->
+  <!-- Bottom: Donate + Legal -->
   <div class="sidebar-footer">
+    <button class="sidebar-link sidebar-link-donate" id="btn-donate" title="Donate">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+          d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364l-7.682-7.682a4.5 4.5 0 010-6.364z"/>
+      </svg>
+      <span class="sidebar-label">Donate</span>
+    </button>
     <button class="sidebar-link sidebar-link-legal" data-page="legal" title="Legal">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
@@ -116,6 +123,40 @@
     </nav>
   </footer>
 
+</div>
+
+<!-- ═══ DONATE MODAL ═══ -->
+<div class="modal-overlay" id="donate-modal" aria-modal="true" role="dialog" aria-label="Donate">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title-row">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" class="modal-title-icon">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+            d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.636l1.318-1.318a4.5 4.5 0 116.364 6.364L12 20.364l-7.682-7.682a4.5 4.5 0 010-6.364z"/>
+        </svg>
+        <span class="modal-title">Support Snap Argos</span>
+      </div>
+      <button class="modal-close" id="donate-modal-close" title="Close">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p class="modal-desc">Snap Argos is free and open source. If you find it useful, consider supporting its development with a small donation — every contribution is greatly appreciated!</p>
+      <div class="donate-qr-wrap">
+        <img src="./src/assets/donate/donate-qr.jpeg" alt="Donation QR code" class="donate-qr"/>
+        <span class="donate-qr-label">Scan to donate via PayPal</span>
+      </div>
+      <a class="donate-paypal-btn" href="https://paypal.me/placeholder" target="_blank" rel="noopener">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+            d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+        </svg>
+        Donate via PayPal
+      </a>
+    </div>
+  </div>
 </div>
 
 <script type="module" src="./src/js/app.js"></script>
