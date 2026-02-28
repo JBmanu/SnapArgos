@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="snap_argos_icon.svg" width="100" height="100" alt="Snap Argos Logo"/>
+<img src="src/assets/logo/logo1.svg" width="100" height="100" alt="Snap Argos Logo"/>
 
 # Snap Argos
 
