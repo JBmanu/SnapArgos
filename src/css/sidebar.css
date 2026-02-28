@@ -18,7 +18,7 @@
 
   /* ── Header row (logo left + toggle right) ────────────────────── */
   .sidebar-header {
-    @apply flex items-center justify-between shrink-0;
+    @apply flex items-center justify-between shrink-0 mt-2;
     height: 50px;
     transition: justify-content .25s;
   }
@@ -38,7 +38,7 @@
     padding: 0;
   }
   .logo-img {
-    @apply w-7 h-7 min-w-[28px] shrink-0 rounded-[7px];
+    @apply w-12 h-12 min-w-[32px] shrink-0 rounded-[7px];
   }
   .logo-name {
     @apply font-display text-[13px] text-snap-text tracking-wide font-medium
@@ -64,7 +64,7 @@
 
   /* ── Nav links ─────────────────────────────────────────────────── */
   .sidebar-links {
-    @apply flex-1 p-3 flex flex-col gap-1;
+    @apply flex-1 px-3 pt-1 pb-3 flex flex-col gap-1;
   }
   .sidebar-link {
     @apply flex items-center gap-2.5 px-3 py-2.5 rounded-lg
