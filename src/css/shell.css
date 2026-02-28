@@ -126,8 +126,36 @@
   .legal-section-title {
     @apply font-display text-[13px] text-snap-text font-semibold;
   }
+  .legal-section-date {
+    @apply ml-auto font-display text-[10px] text-snap-muted2;
+  }
   .legal-section-body {
-    @apply px-5 py-5 font-display text-[12px] text-snap-muted leading-relaxed;
+    @apply px-5 py-5 font-display text-[12px] text-snap-muted leading-relaxed
+           flex flex-col gap-2.5;
+  }
+  .legal-section-body p {
+    @apply text-snap-muted;
+  }
+  .legal-sub-title {
+    @apply font-display text-[11px] font-semibold text-snap-text
+           uppercase tracking-widest mt-3 mb-0.5;
+  }
+  .legal-list {
+    @apply flex flex-col gap-1 pl-4;
+    list-style: none;
+  }
+  .legal-list li::before {
+    content: '—';
+    @apply mr-2 text-snap-muted2;
+  }
+  .legal-list li {
+    @apply flex;
+  }
+  .legal-link {
+    @apply text-snap-blue underline underline-offset-2 transition-colors duration-150;
+  }
+  .legal-link:hover {
+    @apply text-snap-accent;
   }
   .legal-placeholder {
     @apply italic text-snap-muted2;
