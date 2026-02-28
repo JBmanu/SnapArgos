@@ -24,6 +24,7 @@
   }
   body.sidebar-collapsed .sidebar-header {
     @apply justify-center;
+    padding: 0;
   }
 
   /* ── Logo area ─────────────────────────────────────────────────── */
@@ -36,6 +37,7 @@
     @apply opacity-0 pointer-events-none;
     max-width: 0;
     padding: 0;
+    display: none;
   }
   .logo-img {
     @apply w-12 h-12 min-w-[32px] shrink-0 rounded-[7px];
@@ -50,6 +52,9 @@
     @apply flex items-center justify-center w-11 h-full shrink-0
            border-none bg-transparent text-snap-muted cursor-pointer
            transition-colors duration-150;
+  }
+  body.sidebar-collapsed .sidebar-toggle {
+    @apply w-full;
   }
   .sidebar-toggle:hover {
     @apply text-snap-text;
@@ -67,11 +72,14 @@
     @apply flex-1 px-3 pt-1 pb-3 flex flex-col gap-1;
   }
   .sidebar-link {
-    @apply flex items-center gap-2.5 px-3 py-2.5 rounded-lg
+    @apply flex items-center justify-start gap-2.5 px-3 py-2.5 rounded-lg
            border border-transparent bg-transparent
            text-snap-muted font-display text-xs
            cursor-pointer whitespace-nowrap text-left w-full
            transition-all duration-150;
+  }
+  body.sidebar-collapsed .sidebar-link {
+    @apply justify-center px-0 gap-0;
   }
   .sidebar-link svg {
     @apply w-[18px] h-[18px] min-w-[18px] shrink-0;
@@ -95,7 +103,9 @@
   body.sidebar-collapsed .sidebar-label {
     @apply opacity-0 pointer-events-none;
     max-width: 0;
-    transition: opacity .1s, max-width .25s;
+    width: 0;
+    overflow: hidden;
+    transition: opacity .1s, max-width .25s, width .25s;
   }
 
 
