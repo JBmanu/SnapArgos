@@ -234,7 +234,7 @@
     @apply flex items-center gap-2;
   }
   .modal-title-icon {
-    @apply w-[15px] h-[15px] text-snap-accent shrink-0;
+    @apply w-[15px] h-[15px] text-snap-blue shrink-0;
   }
   .modal-title {
     @apply font-display text-[13px] text-snap-text font-semibold;
@@ -274,11 +274,11 @@
            font-display text-[12px] font-medium text-white
            rounded-lg px-4 py-2.5
            transition-all duration-150;
-    background: rgba(255,107,53,1);
+    background: #0096e8;
   }
   .donate-paypal-btn:hover {
-    background: rgba(255,130,70,1);
-    box-shadow: 0 0 0 2px rgba(255,107,53,.35);
+    background: #0084d0;
+    box-shadow: 0 0 0 2px rgba(0,150,232,.35);
   }
   .donate-paypal-btn svg {
     @apply w-[14px] h-[14px] shrink-0;

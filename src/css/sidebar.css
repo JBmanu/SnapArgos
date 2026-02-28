@@ -71,6 +71,9 @@
   .sidebar-links {
     @apply flex-1 px-3 pt-1 pb-3 flex flex-col gap-1;
   }
+  .sidebar-spacer {
+    @apply flex-1;
+  }
   .sidebar-link {
     @apply flex items-center justify-start gap-2.5 px-3 py-2.5 rounded-lg
            border border-transparent bg-transparent
@@ -119,18 +122,18 @@
     margin-left: 58px;
   }
 
-  /* ── Sidebar footer (Donate + Legal pinned to bottom) ──────────── */
+  /* ── Sidebar footer (Legal pinned to bottom) ───────────────────── */
   .sidebar-footer {
-    @apply shrink-0 px-3 pb-3 pt-2 flex flex-col gap-1;
+    @apply shrink-0 px-3 pb-3 pt-2;
     border-top: 1px solid theme('colors.snap.border');
   }
   .sidebar-link-donate {
-    @apply text-snap-accent;
-    background: rgba(255,107,53,.06);
+    @apply text-snap-blue;
+    background: rgba(0,150,232,.07);
   }
   .sidebar-link-donate:hover {
-    @apply text-snap-accent;
-    background: rgba(255,107,53,.13);
+    @apply text-snap-blue;
+    background: rgba(0,150,232,.15);
   }
   .sidebar-link-legal {
     @apply text-snap-muted2;
