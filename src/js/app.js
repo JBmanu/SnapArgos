@@ -81,6 +81,13 @@ async function navigateTo(page, section = null) {
         }
         uploaderInitFn();
     }
+    if (page === 'legal') {
+        if (!legalInitFn) {
+            const mod = await import('./legal.js');
+            legalInitFn = mod.initLegal;
+        }
+        legalInitFn();
+    }
 
     history.replaceState(null, '', `#${page}`);
 
