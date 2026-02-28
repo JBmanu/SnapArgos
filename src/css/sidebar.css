@@ -37,10 +37,8 @@
     max-width: 0;
     padding: 0;
   }
-  .logo-mark {
-    @apply w-7 h-7 min-w-[28px] bg-snap-accent rounded-[7px]
-           grid place-items-center
-           font-display text-[11px] text-white font-medium shrink-0;
+  .logo-img {
+    @apply w-7 h-7 min-w-[28px] shrink-0 rounded-[7px];
   }
   .logo-name {
     @apply font-display text-[13px] text-snap-text tracking-wide font-medium
