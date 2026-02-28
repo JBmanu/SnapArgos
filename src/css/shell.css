@@ -165,14 +165,14 @@
   .legal-section-body {
     @apply px-5 font-display text-[12px] text-snap-muted leading-relaxed
            flex flex-col gap-2.5 overflow-hidden;
-    max-height: 9999px;
+    max-height: 2000px;
     padding-top: 20px;
     padding-bottom: 20px;
     transition: max-height .35s cubic-bezier(.4,0,.2,1),
                 padding .35s cubic-bezier(.4,0,.2,1);
   }
   .legal-section.collapsed .legal-section-body {
-    max-height: 0 !important;
+    max-height: 0;
     padding-top: 0;
     padding-bottom: 0;
   }

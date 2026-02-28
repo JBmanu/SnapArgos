@@ -44,6 +44,7 @@ $('sidebar-toggle').addEventListener('click', () => {
 // ═══ PAGE ROUTING ════════════════════════════════════════════════════════════
 let uploaderInitFn = null;
 let overviewInitFn = null;
+let legalInitFn    = null;
 
 const VALID_PAGES = ['overview', 'uploader', 'legal'];
 
@@ -86,7 +87,7 @@ async function navigateTo(page, section = null) {
             const mod = await import('./legal.js');
             legalInitFn = mod.initLegal;
         }
-        legalInitFn();
+        legalInitFn(); // always re-run: DOM is freshly injected on every visit
     }
 
     history.replaceState(null, '', `#${page}`);
