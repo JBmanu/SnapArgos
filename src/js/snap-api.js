@@ -375,7 +375,23 @@ export function importCustomBlocks(projectXml, mediaXml, xmlString) {
     return {projectXml: projectXml.replace('</blocks>', toAdd + '</blocks>'), mediaXml, skipped};
 }
 
-function findTargetStart(projectXml, targetName) {
+/**
+ * Find the character offset of a target (sprite/stage) in projectXml.
+ * @param {string} projectXml
+ * @param {string} targetName - name of the sprite/stage
+ * @param {number|null} xmlOffset - if provided, use this exact offset (precise mode)
+ */
+function findTargetStart(projectXml, targetName, xmlOffset = null) {
+    // Precise mode: use xmlOffset directly if it points to the right tag
+    if (xmlOffset != null && xmlOffset >= 0) {
+        const expectedTag = targetName === 'Stage' || projectXml.startsWith('<stage', xmlOffset) ? 'stage' : 'sprite';
+        if (projectXml.startsWith(`<${expectedTag}`, xmlOffset)) {
+            return xmlOffset;
+        }
+        console.warn(`[findTargetStart] xmlOffset ${xmlOffset} doesn't match <${expectedTag}>, falling back to name search`);
+    }
+
+    // Fallback: name-based search
     if (targetName === 'Stage') {
         const m = projectXml.match(/<stage[\s]/);
         if (!m) throw new Error('Stage not found in project XML');
@@ -389,9 +405,9 @@ function findTargetStart(projectXml, targetName) {
 
 function targetTag(n) { return n === 'Stage' ? 'stage' : 'sprite'; }
 
-function getAssetNames(projectXml, targetName, assetTag) {
+function getAssetNames(projectXml, targetName, assetTag, xmlOffset = null) {
     try {
-        const start = findTargetStart(projectXml, targetName);
+        const start = findTargetStart(projectXml, targetName, xmlOffset);
         const tag = targetTag(targetName);
         const blockXml = extractTag(projectXml.slice(start), tag);
         if (!blockXml) return [];
@@ -402,8 +418,8 @@ function getAssetNames(projectXml, targetName, assetTag) {
     } catch { return []; }
 }
 
-function injectAssetItem(projectXml, targetName, section, itemXml) {
-    const start = findTargetStart(projectXml, targetName);
+function injectAssetItem(projectXml, targetName, section, itemXml, xmlOffset = null) {
+    const start = findTargetStart(projectXml, targetName, xmlOffset);
     const tag = targetTag(targetName);
     const blockXml = extractTag(projectXml.slice(start), tag);
     if (!blockXml) throw new Error(`Cannot extract <${tag}> for "${targetName}"`);
@@ -418,25 +434,25 @@ function injectAssetItem(projectXml, targetName, section, itemXml) {
     return projectXml.slice(0, start) + newBlock + projectXml.slice(start + blockXml.length);
 }
 
-export async function uploadImageToSprite(projectXml, mediaXml, targetName, file) {
+export async function uploadImageToSprite(projectXml, mediaXml, targetName, file, xmlOffset = null) {
     const {dataURL, name} = await readFile(file);
-    const existing = getAssetNames(projectXml, targetName, 'costume');
+    const existing = getAssetNames(projectXml, targetName, 'costume', xmlOffset);
     if (existing.includes(name)) return {projectXml, mediaXml, skipped: name};
     const item = `<item><costume name="${xa(name)}" center-x="0" center-y="0" image="${xa(dataURL)}" id="${rndId()}"/></item>`;
-    let newXml = injectAssetItem(projectXml, targetName, 'costumes', item);
-    newXml = setActiveCostume(newXml, targetName, existing.length + 1);
+    let newXml = injectAssetItem(projectXml, targetName, 'costumes', item, xmlOffset);
+    newXml = setActiveCostume(newXml, targetName, existing.length + 1, xmlOffset);
     return {projectXml: newXml, mediaXml, skipped: null};
 }
 
-export async function uploadAudioToSprite(projectXml, mediaXml, targetName, file) {
+export async function uploadAudioToSprite(projectXml, mediaXml, targetName, file, xmlOffset = null) {
     const {dataURL, name} = await readFile(file);
-    if (getAssetNames(projectXml, targetName, 'sound').includes(name))
+    if (getAssetNames(projectXml, targetName, 'sound', xmlOffset).includes(name))
         return {projectXml, mediaXml, skipped: name};
     const item = `<item><sound name="${xa(name)}" sound="${xa(dataURL)}" id="${rndId()}"/></item>`;
-    return {projectXml: injectAssetItem(projectXml, targetName, 'sounds', item), mediaXml, skipped: null};
+    return {projectXml: injectAssetItem(projectXml, targetName, 'sounds', item, xmlOffset), mediaXml, skipped: null};
 }
 
-export function importScriptXml(projectXml, mediaXml, targetName, xmlString) {
+export function importScriptXml(projectXml, mediaXml, targetName, xmlString, xmlOffset = null) {
     const trimmed = xmlString.trimStart();
     const isScriptsContainer = trimmed.startsWith('<scripts');
     const isScriptFile = trimmed.startsWith('<script ') || trimmed.startsWith('<script>');
@@ -455,7 +471,7 @@ export function importScriptXml(projectXml, mediaXml, targetName, xmlString) {
         node = node.replace(/^(<script(?![^>]*\by=")[^>]*>)/m, (m) => m.replace('<script', '<script y="10"'));
         nodesToInject = node;
     }
-    const start = findTargetStart(projectXml, targetName);
+    const start = findTargetStart(projectXml, targetName, xmlOffset);
     const tag = targetTag(targetName);
     const blockXml = extractTag(projectXml.slice(start), tag);
     if (!blockXml) throw new Error(`Cannot extract <${tag}> for "${targetName}"`);
@@ -472,7 +488,31 @@ export function importScriptXml(projectXml, mediaXml, targetName, xmlString) {
     };
 }
 
-function setActiveCostume(projectXml, targetName, costumeIndex) {
+function setActiveCostume(projectXml, targetName, costumeIndex, xmlOffset = null) {
+    if (xmlOffset != null && xmlOffset >= 0) {
+        // Precise mode: replace costume attribute in the tag at xmlOffset
+        const tagName = projectXml.startsWith('<stage', xmlOffset) ? 'stage' : 'sprite';
+        // Find end of opening tag at xmlOffset
+        let i = xmlOffset, inQ = null;
+        while (i < projectXml.length) {
+            const c = projectXml[i];
+            if (inQ) {
+                const ci = projectXml.indexOf(inQ, i + 1);
+                if (ci === -1) break;
+                i = ci + 1; inQ = null; continue;
+            }
+            if (c === '"' || c === "'") { inQ = c; i++; continue; }
+            if (c === '>') break;
+            i++;
+        }
+        const openTag = projectXml.slice(xmlOffset, i + 1);
+        const newTag = openTag.replace(/\bcostume="\d+"/, `costume="${costumeIndex}"`);
+        if (newTag !== openTag) {
+            return projectXml.slice(0, xmlOffset) + newTag + projectXml.slice(xmlOffset + openTag.length);
+        }
+        return projectXml;
+    }
+    // Fallback: name-based
     if (targetName === 'Stage') {
         return projectXml.replace(/(<stage [^>]+>)/, tag => tag.replace(/\bcostume="\d+"/, `costume="${costumeIndex}"`));
     }

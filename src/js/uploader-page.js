@@ -2,6 +2,9 @@
  * uploader-page.js — Uploader page module
  * Identica logica al vecchio uploader.js ma senza gestione credenziali
  * (gestite da app.js). Esporta initUploader() chiamata al caricamento pagina.
+ *
+ * FIX: Stores xmlOffset for each selected sprite so that upload functions
+ * target the correct sprite even when multiple share the same name.
  */
 import {
     getProject, saveProject,
@@ -16,7 +19,7 @@ console.log('[uploader-page] ✓ module loaded');
 
 let selMode = 'none';
 let selectedProjects = new Set();
-let selectedSprites = [];
+let selectedSprites = [];  // Each entry: { projectName, spriteName, spriteType, xmlOffset }
 let spritePanelProj = null;
 let files = [];
 let busy = false;
@@ -120,7 +123,8 @@ function renderSprList(sprites, projName) {
     sprites.forEach(s => {
         const row = document.createElement('div');
         const locked = selMode === 'projects';
-        const isSel = selectedSprites.some(x => x.projectName === projName && x.spriteName === s.name);
+        const isSel = selectedSprites.some(x =>
+            x.projectName === projName && x.spriteName === s.name && x.xmlOffset === s.xmlOffset);
         const isStage = s.type === 'stage';
         row.className = 'spr-row' + (isSel ? ' sel' : '') + (locked ? ' locked' : '') + (!isStage ? ' spr-child-row' : '');
         row.innerHTML = `<svg class="row-icon" fill="currentColor" viewBox="0 0 16 16">${isStage?'<rect x="1" y="2" width="14" height="10" rx="1.5"/><path d="M5 14h6"/>':'<circle cx="8" cy="6" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/>'}</svg>
@@ -133,9 +137,20 @@ function renderSprList(sprites, projName) {
 
 function onSprClick(projName, sprite, row) {
     if (selMode === 'projects') return;
-    const idx = selectedSprites.findIndex(x => x.projectName === projName && x.spriteName === sprite.name);
+    // Match by xmlOffset for precision (handles same-name sprites)
+    const idx = selectedSprites.findIndex(x =>
+        x.projectName === projName && x.spriteName === sprite.name && x.xmlOffset === sprite.xmlOffset);
     if (idx >= 0) { selectedSprites.splice(idx, 1); row.classList.remove('sel'); }
-    else { selectedSprites.push({projectName:projName, spriteName:sprite.name, spriteType:sprite.type}); row.classList.add('sel'); selMode = 'sprites'; }
+    else {
+        selectedSprites.push({
+            projectName: projName,
+            spriteName: sprite.name,
+            spriteType: sprite.type,
+            xmlOffset: sprite.xmlOffset,  // KEY: store the precise offset
+        });
+        row.classList.add('sel');
+        selMode = 'sprites';
+    }
     if (selectedSprites.length === 0) selMode = 'none';
     updateBanner(); updateSelPanel(); updateDropHint(); updateDetectBox(); checkUploadReady(); renderProjList();
 }
@@ -175,7 +190,8 @@ function updateSelPanel() {
         }));
     } else if (selMode === 'sprites') {
         selectedSprites.forEach(s => addChip('spr', s.spriteName, s.projectName, () => {
-            const i = selectedSprites.findIndex(x => x.projectName === s.projectName && x.spriteName === s.spriteName);
+            const i = selectedSprites.findIndex(x =>
+                x.projectName === s.projectName && x.spriteName === s.spriteName && x.xmlOffset === s.xmlOffset);
             if (i >= 0) selectedSprites.splice(i, 1);
             if (!selectedSprites.length) { selMode = 'none'; renderProjList(); }
             if (spritePanelProj) { const c = appState.projectCache.get(spritePanelProj); if (c) renderSprList(getSpritesFromXml(c.projectXml), spritePanelProj); }
@@ -281,10 +297,27 @@ async function onDownloadClick() {
         for (const [pn, sprites] of Object.entries(bp)) {
             let {projectXml, mediaXml} = await getOrFetch(pn);
             for (const {file, xmlType} of vf) { const e = fileExt(file);
-                if (EXTS_IMG.includes(e)) { for (const s of sprites) { const r = await uploadImageToSprite(projectXml,mediaXml,s.spriteName,file); projectXml=r.projectXml; mediaXml=r.mediaXml; } }
-                else if (EXTS_AUDIO.includes(e)) { for (const s of sprites) { const r = await uploadAudioToSprite(projectXml,mediaXml,s.spriteName,file); projectXml=r.projectXml; mediaXml=r.mediaXml; } }
-                else if (e==='xml'&&['script','scripts'].includes(xmlType)) { const text = await file.text(); for (const s of sprites) { const r = importScriptXml(projectXml,mediaXml,s.spriteName,text); projectXml=r.projectXml; mediaXml=r.mediaXml; } }
-            } log(`⬇ Downloaded modified XML for "${pn}"`, 'ok');
+                if (EXTS_IMG.includes(e)) {
+                    for (const s of sprites) {
+                        const r = await uploadImageToSprite(projectXml, mediaXml, s.spriteName, file, s.xmlOffset);
+                        projectXml = r.projectXml; mediaXml = r.mediaXml;
+                    }
+                }
+                else if (EXTS_AUDIO.includes(e)) {
+                    for (const s of sprites) {
+                        const r = await uploadAudioToSprite(projectXml, mediaXml, s.spriteName, file, s.xmlOffset);
+                        projectXml = r.projectXml; mediaXml = r.mediaXml;
+                    }
+                }
+                else if (e === 'xml' && ['script','scripts'].includes(xmlType)) {
+                    const text = await file.text();
+                    for (const s of sprites) {
+                        const r = importScriptXml(projectXml, mediaXml, s.spriteName, text, s.xmlOffset);
+                        projectXml = r.projectXml; mediaXml = r.mediaXml;
+                    }
+                }
+            }
+            log(`⬇ Downloaded modified XML for "${pn}"`, 'ok');
         }
     } catch (e) { log('✗ Download error: '+e.message, 'err'); } finally { setBusy(false); setProgress(false); }
 }
@@ -307,23 +340,102 @@ async function uploadToProjects(vf) {
     log(`Done — ${targets.length} project(s) processed`, 'ok');
 }
 
+/**
+ * Upload files to selected sprites.
+ *
+ * IMPORTANT: When modifying projectXml (injecting assets), the XML length changes,
+ * which invalidates xmlOffset values for sprites that come AFTER the modified one.
+ * To handle this, we recalculate offsets after each project save by re-parsing
+ * the sprite list from the updated XML.
+ *
+ * Strategy: process all files for all sprites within a project in one pass,
+ * then save once. The xmlOffset is only used for the FIRST operation on each sprite;
+ * after that the XML has changed so we need fresh offsets. We handle this by
+ * re-resolving offsets after each injection.
+ */
 async function uploadToSprites(vf) {
-    const bp = {}; for (const s of selectedSprites) { if (!bp[s.projectName]) bp[s.projectName]=[]; bp[s.projectName].push(s); }
+    const bp = {};
+    for (const s of selectedSprites) {
+        if (!bp[s.projectName]) bp[s.projectName] = [];
+        bp[s.projectName].push(s);
+    }
     const pn = Object.keys(bp);
     log(`Uploading to ${selectedSprites.length} sprite(s) in ${pn.length} project(s)`, 'info');
+
     for (let pi = 0; pi < pn.length; pi++) {
-        const projName = pn[pi]; const sprites = bp[projName]; log(`↓ "${projName}"…`, 'info');
+        const projName = pn[pi];
+        const sprites = bp[projName];
+        log(`↓ "${projName}"…`, 'info');
         try {
             let {projectXml, mediaXml} = await getOrFetch(projName);
-            for (const {file, xmlType} of vf) { const e = fileExt(file); const isImg = EXTS_IMG.includes(e); const isAud = EXTS_AUDIO.includes(e);
-                if (isImg || isAud) { for (const s of sprites) { try { let r; if (isImg) r = await uploadImageToSprite(projectXml,mediaXml,s.spriteName,file); else r = await uploadAudioToSprite(projectXml,mediaXml,s.spriteName,file); projectXml=r.projectXml; mediaXml=r.mediaXml; if (r.skipped) log(`  ⚠ "${file.name}" exists on "${s.spriteName}"`,'warn'); else log(`  + ${isImg?'image':'audio'} "${file.name}" → "${s.spriteName}"`,'ok'); } catch(e2) { log(`  ✗ "${s.spriteName}": ${e2.message}`,'err'); } } }
-                else if (e==='xml'&&['script','scripts'].includes(xmlType)) { const text = await file.text(); for (const s of sprites) { try { const r = importScriptXml(projectXml,mediaXml,s.spriteName,text); projectXml=r.projectXml; mediaXml=r.mediaXml; log(`  + script "${file.name}" → "${s.spriteName}"`,'ok'); } catch(e2) { log(`  ✗ "${s.spriteName}": ${e2.message}`,'err'); } } }
+
+            for (const {file, xmlType} of vf) {
+                const e = fileExt(file);
+                const isImg = EXTS_IMG.includes(e);
+                const isAud = EXTS_AUDIO.includes(e);
+
+                if (isImg || isAud) {
+                    for (const s of sprites) {
+                        try {
+                            // Re-resolve xmlOffset from current XML state
+                            const freshOffset = resolveCurrentOffset(projectXml, s);
+                            let r;
+                            if (isImg) r = await uploadImageToSprite(projectXml, mediaXml, s.spriteName, file, freshOffset);
+                            else r = await uploadAudioToSprite(projectXml, mediaXml, s.spriteName, file, freshOffset);
+                            projectXml = r.projectXml; mediaXml = r.mediaXml;
+                            if (r.skipped) log(`  ⚠ "${file.name}" exists on "${s.spriteName}"`, 'warn');
+                            else log(`  + ${isImg?'image':'audio'} "${file.name}" → "${s.spriteName}"`, 'ok');
+                        } catch(e2) { log(`  ✗ "${s.spriteName}": ${e2.message}`, 'err'); }
+                    }
+                } else if (e === 'xml' && ['script','scripts'].includes(xmlType)) {
+                    const text = await file.text();
+                    for (const s of sprites) {
+                        try {
+                            const freshOffset = resolveCurrentOffset(projectXml, s);
+                            const r = importScriptXml(projectXml, mediaXml, s.spriteName, text, freshOffset);
+                            projectXml = r.projectXml; mediaXml = r.mediaXml;
+                            log(`  + script "${file.name}" → "${s.spriteName}"`, 'ok');
+                        } catch(e2) { log(`  ✗ "${s.spriteName}": ${e2.message}`, 'err'); }
+                    }
+                }
             }
-            await saveProject(projName,projectXml,mediaXml); appState.projectCache.set(projName,{projectXml,mediaXml}); log(`  ✓ saved "${projName}"`,'ok');
-        } catch (e) { log(`  ✗ "${projName}": ${e.message}`,'err'); }
+            await saveProject(projName, projectXml, mediaXml);
+            appState.projectCache.set(projName, {projectXml, mediaXml});
+            log(`  ✓ saved "${projName}"`, 'ok');
+        } catch (e) { log(`  ✗ "${projName}": ${e.message}`, 'err'); }
         setProgress(true, (pi+1)/pn.length*100, `${pi+1}/${pn.length} done`);
     }
     log(`Done — ${pn.length} project(s) updated`, 'ok');
+}
+
+/**
+ * Re-resolve the xmlOffset for a sprite in the current (possibly modified) projectXml.
+ * After injecting assets, character positions shift, so we need to find the sprite again.
+ *
+ * Uses getSpritesFromXml to get fresh offsets and matches by name + parentStage.
+ * If multiple sprites share the same name and parentStage, uses the original xmlOffset
+ * as a hint to pick the closest match.
+ */
+function resolveCurrentOffset(projectXml, spriteEntry) {
+    const freshSprites = getSpritesFromXml(projectXml);
+    const candidates = freshSprites.filter(s =>
+        s.name === spriteEntry.spriteName && s.type === spriteEntry.spriteType);
+
+    if (candidates.length === 0) return null;
+    if (candidates.length === 1) return candidates[0].xmlOffset;
+
+    // Multiple candidates with same name — find the closest to original offset
+    if (spriteEntry.xmlOffset != null) {
+        let best = candidates[0];
+        let bestDist = Math.abs(best.xmlOffset - spriteEntry.xmlOffset);
+        for (let i = 1; i < candidates.length; i++) {
+            const dist = Math.abs(candidates[i].xmlOffset - spriteEntry.xmlOffset);
+            if (dist < bestDist) { best = candidates[i]; bestDist = dist; }
+        }
+        return best.xmlOffset;
+    }
+
+    return candidates[0].xmlOffset;
 }
 
 async function getOrFetch(name) {
