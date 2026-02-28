@@ -60,7 +60,12 @@ async function req(method, path, {body, wantsRaw = false} = {}) {
     const text = await res.text();
     console.log(`[snap-api] body (${text.length} chars):`, text.slice(0, 150));
 
-    if (!text) throw new Error(`Empty response ${method} ${path} (${res.status})`);
+    // DELETE (and some other mutating requests) may return an empty body on success.
+    // Treat an empty body as success only when the HTTP status is 2xx.
+    if (!text) {
+        if (res.ok) return null;
+        throw new Error(`Empty response ${method} ${path} (${res.status})`);
+    }
 
     // For wantsRaw: return raw text unless it's a JSON error
     if (wantsRaw) {

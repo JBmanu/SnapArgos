@@ -76,7 +76,12 @@ async function snapRequest(jar, method, apiPath, { body, wantsRaw = false } = {}
     if (sc) ingestCookies(jar, sc);
 
     const text = await res.text();
-    if (!text) throw new Error(`Empty response from ${method} ${apiPath}`);
+    // DELETE (and some other mutating requests) may return an empty body on success.
+    // Treat an empty body as success only when the HTTP status is 2xx.
+    if (!text) {
+        if (res.ok) return null;
+        throw new Error(`Empty response from ${method} ${apiPath} (HTTP ${res.status})`);
+    }
 
     console.log(`[snapReq] ${method} ${apiPath} → ${text.length} chars, starts: ${text.slice(0, 60).replace(/\n/g,' ')}`);
 
@@ -203,6 +208,24 @@ app.post('/snap-api/project/:name', async (req, res) => {
         res.json({ ok: true, message: result });
     } catch(e) {
         console.error('[snap-api] save error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// ─── DELETE /snap-api/project/:name ──────────────────────────────────────────
+// Deletes a project from Snap! cloud
+app.delete('/snap-api/project/:name', async (req, res) => {
+    const jar = getJar(req.sid);
+    if (!jar.username) return res.status(401).json({ error: 'Not logged in' });
+
+    try {
+        const result = await snapRequest(jar, 'DELETE',
+            `/projects/${encodeURIComponent(jar.username)}/${encodeURIComponent(req.params.name)}`
+        );
+        console.log(`[snap-api] deleted "${req.params.name}" (sid: ${req.sid.slice(0,8)})`);
+        res.json({ ok: true, message: result });
+    } catch(e) {
+        console.error('[snap-api] delete error:', e.message);
         res.status(500).json({ error: e.message });
     }
 });
@@ -500,24 +523,6 @@ app.get('/snap-api/debug-save/:name', async (req, res) => {
             spritesSelect: xml.match(/<sprites select="([^"]+)"/)?.[1],
         });
     } catch(e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// ─── DELETE /snap-api/project/:name ──────────────────────────────────────────
-// Deletes a project from Snap! cloud
-app.delete('/snap-api/project/:name', async (req, res) => {
-    const jar = getJar(req.sid);
-    if (!jar.username) return res.status(401).json({ error: 'Not logged in' });
-
-    try {
-        const result = await snapRequest(jar, 'DELETE',
-            `/projects/${encodeURIComponent(jar.username)}/${encodeURIComponent(req.params.name)}`
-        );
-        console.log(`[snap-api] deleted "${req.params.name}" (sid: ${req.sid.slice(0,8)})`);
-        res.json({ ok: true, message: result });
-    } catch(e) {
-        console.error('[snap-api] delete error:', e.message);
         res.status(500).json({ error: e.message });
     }
 });
