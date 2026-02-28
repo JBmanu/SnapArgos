@@ -65,7 +65,7 @@
 
   /* ── Page content area ─────────────────────────────────────────── */
   .page-content {
-    @apply p-6 pb-10;
+    @apply px-6 pt-4 pb-10;
   }
 
   /* ── Empty page placeholder ────────────────────────────────────── */
