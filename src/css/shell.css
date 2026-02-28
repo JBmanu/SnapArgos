@@ -264,7 +264,9 @@
     @apply rounded-xl border border-snap-border;
     width: 180px;
     height: 180px;
-    object-fit: cover;
+    object-fit: contain;
+    padding: 8px;
+    background: #fff;
   }
   .donate-qr-label {
     @apply font-display text-[10px] text-snap-muted2;
