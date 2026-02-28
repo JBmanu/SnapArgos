@@ -49,6 +49,15 @@ let legalInitFn    = null;
 const VALID_PAGES = ['overview', 'uploader', 'legal'];
 
 async function navigateTo(page, section = null) {
+    // If already on this page and a section deep-link is requested, just re-init
+    if (appState.currentPage === page && section && page === 'legal') {
+        legalInitFn?.(section);
+        requestAnimationFrame(() => {
+            document.getElementById(`legal-${section}`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        return;
+    }
     if (appState.currentPage === page && !section) return;
     appState.currentPage = page;
 
@@ -87,7 +96,7 @@ async function navigateTo(page, section = null) {
             const mod = await import('./legal.js');
             legalInitFn = mod.initLegal;
         }
-        legalInitFn(); // always re-run: DOM is freshly injected on every visit
+        legalInitFn(section); // pass section so the right card opens; null = all collapsed
     }
 
     history.replaceState(null, '', `#${page}`);
