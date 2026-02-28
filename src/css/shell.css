@@ -1,51 +1,27 @@
 /* ═══════════════════════════════════════════════════════════════════
-   shell.css — Header, credential bar, page content (Tailwind)
+   shell.css — Credential bar (sticky), page content (Tailwind)
    ═══════════════════════════════════════════════════════════════════ */
 
 @layer components {
 
-  /* ── Header ────────────────────────────────────────────────────── */
-  .shell-header {
-    @apply sticky top-0 z-[100]
-           flex items-center justify-between
-           px-6 border-b border-snap-border
-           backdrop-blur-md;
-    height: 50px;
-    background: rgba(14,15,20,.92);
-  }
-  .header-left {
-    @apply flex items-center gap-2.5;
-  }
-  .page-title {
-    @apply font-display text-sm text-snap-text font-medium;
-  }
-  .env-pill {
-    @apply font-display text-[10px] px-2 py-0.5 rounded-full
-           bg-snap-surface text-snap-muted border border-snap-border;
-  }
-  .env-pill.prod {
-    @apply text-snap-accent;
-    background: rgba(255,107,53,.12);
-    border-color: rgba(255,107,53,.3);
-  }
-  .session-pill {
-    @apply hidden items-center gap-1.5 font-display text-[11px] text-snap-muted;
-  }
-  .session-pill.active {
-    @apply flex;
-  }
-  .pulse-dot {
-    @apply w-1.5 h-1.5 rounded-full animate-pulse-dot bg-snap-green;
-  }
-
-  /* ── Credential bar ────────────────────────────────────────────── */
+  /* ── Credential bar (sticky) ───────────────────────────────────── */
   .cred-bar {
-    @apply border-b border-snap-border bg-snap-surface;
-    padding: 16px 24px;
+    @apply sticky top-0 z-[100]
+           border-b border-snap-border
+           backdrop-blur-md;
+    padding: 12px 24px 14px;
+    background: rgba(14,15,20,.95);
   }
   .cred-bar-inner {
     @apply max-w-[920px];
   }
+
+
+  /* ── In-page heading ───────────────────────────────────────────── */
+  .page-heading {
+    @apply font-display text-lg text-snap-text font-semibold mb-4;
+  }
+
   .cred-fields {
     @apply grid gap-3 items-end;
     grid-template-columns: 1fr 1fr auto;

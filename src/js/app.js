@@ -28,12 +28,8 @@ const inpUser     = $('inp-user');
 const inpPass     = $('inp-pass');
 const credStatus  = $('cred-status');
 const credMsg     = $('cred-msg');
-const pageTitle   = $('page-title');
 const pageContent = $('page-content');
 
-// ═══ ENV BADGE ═══════════════════════════════════════════════════════════════
-if (!IS_LOCAL) $('env-badge')?.classList.add('prod');
-if ($('env-badge')) $('env-badge').textContent = IS_LOCAL ? 'local' : 'github pages';
 
 // ═══ SIDEBAR TOGGLE ══════════════════════════════════════════════════════════
 if (localStorage.getItem('sidebar-collapsed') === 'true')
@@ -46,7 +42,6 @@ $('sidebar-toggle').addEventListener('click', () => {
 });
 
 // ═══ PAGE ROUTING ════════════════════════════════════════════════════════════
-const PAGE_TITLES = { overview: 'Overview', uploader: 'Uploader' };
 let uploaderInitFn = null;
 let overviewInitFn = null;
 
@@ -57,7 +52,6 @@ async function navigateTo(page) {
     // Sidebar highlight
     document.querySelectorAll('.sidebar-link').forEach(btn =>
         btn.classList.toggle('active', btn.dataset.page === page));
-    pageTitle.textContent = PAGE_TITLES[page] || page;
 
     // Load HTML
     try {
@@ -151,8 +145,6 @@ async function doLogin(user, pass) {
     try {
         const loggedAs = await login(user, pass);
         setCredStatus('ok', `Connected as ${loggedAs}`);
-        $('session-pill').classList.add('active');
-        $('session-user').textContent = loggedAs;
         await loadProjects();
         bus.emit('login', loggedAs);
     } catch (e) {
