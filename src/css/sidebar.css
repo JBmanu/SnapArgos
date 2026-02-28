@@ -128,12 +128,24 @@
     border-top: 1px solid theme('colors.snap.border');
   }
   .sidebar-link-donate {
-    @apply text-snap-blue;
+    @apply text-snap-blue font-semibold;
     background: rgba(0,150,232,.07);
+    border-color: rgba(0,150,232,.25);
+    padding-top: 14px;
+    padding-bottom: 14px;
+    font-size: 13px;
   }
   .sidebar-link-donate:hover {
     @apply text-snap-blue;
     background: rgba(0,150,232,.15);
+    border-color: rgba(0,150,232,.45);
+  }
+  .sidebar-link-donate svg {
+    @apply w-[22px] h-[22px] min-w-[22px];
+  }
+  body.sidebar-collapsed .sidebar-link-donate {
+    padding-top: 14px;
+    padding-bottom: 14px;
   }
   .sidebar-link-legal {
     @apply text-snap-muted2;
