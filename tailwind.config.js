@@ -12,25 +12,25 @@ module.exports = {
       },
         colors: {
         snap: {
-          bg:           '#0e0f14',
-          surface:      '#16181f',
-          surface2:     '#1e2028',
-          border:       '#2a2d38',
-          accent:       '#ff6b35',
-          'accent-hover':'#e04d22',
-          accent2:      '#ffd166',
-          green:        '#3ecf8e',
-          blue:         '#4d9fff',
-          purple:       '#a78bfa',
-          amber:        '#fbbf24',
-          muted:        '#6b7280',
-          muted2:       '#3a3f52',
-          text:         '#e8eaf0',
+          bg:           '#0a0b14',    // near-black with blue tint
+          surface:      '#111425',    // clearly lifted from bg
+          surface2:     '#181c32',    // visible step up from surface
+          border:       '#2e3558',    // brighter border — good separation
+          accent:       '#5fd4ff',    // bright cyan-blue (high pop)
+          'accent-hover':'#45b8e6',   // hover state
+          accent2:      '#5eeadf',    // bright teal
+          green:        '#5eeadf',    // teal from logo, brightened
+          blue:         '#0096e8',    // vivid iris blue
+          purple:       '#b49dff',    // slightly brighter purple
+          amber:        '#ff9e66',    // warm orange from logo
+          muted:        '#7585ad',    // more readable muted text
+          muted2:       '#3d4568',    // subdued but visible
+          text:         '#edf0f7',    // bright clean white
           // dark tinted badge backgrounds
-          'tint-green': '#0d2d1a',
-          'tint-blue':  '#0d1e30',
-          'tint-purple':'#1c1530',
-          'tint-red':   '#2d1010',
+          'tint-green': '#0a2625',
+          'tint-blue':  '#0a1528',
+          'tint-purple':'#181230',
+          'tint-red':   '#280e14',
         }
       },
       animation: {
