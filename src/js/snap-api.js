@@ -228,6 +228,12 @@ export function isFileAccepted(file, selMode, xmlType = null) {
     return false;
 }
 
+/**
+ * Extract all sprites and stages from projectXml.
+ * Each entry includes a unique `xmlOffset` — the character position of the
+ * opening tag in projectXml — so that sprites with identical names can be
+ * disambiguated later (e.g. in overview.js findTargetBlock).
+ */
 export function getSpritesFromXml(projectXml) {
     const list = [];
 
@@ -241,17 +247,39 @@ export function getSpritesFromXml(projectXml) {
 
         // Extract stage name from opening tag (scan quote-aware to skip pentrails etc.)
         const stageName = _readAttrFromTag(projectXml, idx, 'name') || 'Stage';
-        list.push({ name: stageName, type: 'stage' });
+        list.push({ name: stageName, type: 'stage', xmlOffset: idx });
 
         // Extract the full <stage>…</stage> block to find its child sprites
         const stageBlock = extractTag(projectXml.slice(idx), 'stage');
         if (stageBlock) {
             const spritesBlock = extractTag(stageBlock, 'sprites');
             if (spritesBlock) {
-                // Find <sprite> tags inside <sprites> (sprite opening tags are small, regex OK)
-                for (const spm of spritesBlock.matchAll(/<sprite\s[^>]*>/g)) {
-                    const spName = spm[0].match(/\bname="([^"]+)"/)?.[1];
-                    if (spName) list.push({ name: spName, type: 'sprite', parentStage: stageName });
+                // The spritesBlock starts at some offset within stageBlock.
+                // We need to compute the absolute offset in projectXml.
+                const spritesOffsetInStage = stageBlock.indexOf(spritesBlock);
+
+                // Find <sprite> tags inside <sprites>
+                let sprSearchFrom = 0;
+                while (sprSearchFrom < spritesBlock.length) {
+                    const sprIdx = spritesBlock.indexOf('<sprite', sprSearchFrom);
+                    if (sprIdx === -1) break;
+                    const sprAfter = spritesBlock[sprIdx + 7];
+                    if (sprAfter && !/[\s>\/]/.test(sprAfter)) { sprSearchFrom = sprIdx + 1; continue; }
+
+                    const spName = _readAttrFromTag(spritesBlock, sprIdx, 'name');
+                    if (spName) {
+                        // Compute absolute offset in projectXml
+                        const absoluteOffset = idx + spritesOffsetInStage + sprIdx;
+                        list.push({ name: spName, type: 'sprite', parentStage: stageName, xmlOffset: absoluteOffset });
+                    }
+
+                    // Skip past this sprite's opening tag to find the next one
+                    const sprBlock = extractTag(spritesBlock.slice(sprIdx), 'sprite');
+                    if (sprBlock) {
+                        sprSearchFrom = sprIdx + sprBlock.length;
+                    } else {
+                        sprSearchFrom = sprIdx + 1;
+                    }
                 }
             }
             searchFrom = idx + stageBlock.length;
@@ -262,9 +290,9 @@ export function getSpritesFromXml(projectXml) {
 
     // Fallback if no <stage> tag found
     if (!list.length) {
-        list.push({ name: 'Stage', type: 'stage' });
+        list.push({ name: 'Stage', type: 'stage', xmlOffset: 0 });
         for (const m of projectXml.matchAll(/<sprite\s[^>]*name="([^"]+)"/g))
-            list.push({ name: m[1], type: 'sprite', parentStage: 'Stage' });
+            list.push({ name: m[1], type: 'sprite', parentStage: 'Stage', xmlOffset: m.index });
     }
 
     return list;

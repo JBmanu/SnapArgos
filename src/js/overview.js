@@ -1,5 +1,8 @@
 /**
  * overview.js — Overview page: browse projects → sprites → costumes & sounds
+ *
+ * FIX: Uses xmlOffset from getSpritesFromXml to precisely identify the correct
+ * XML block for each sprite/stage, even when multiple share the same name.
  */
 import { getProject, getSpritesFromXml, extractTag } from './snap-api.js?v=14';
 import { appState, bus } from './app.js';
@@ -113,6 +116,8 @@ function renderSprites(sprites, projData) {
         row.dataset.name = s.name;
         row.dataset.type = s.type;
         row.dataset.parentStage = s.parentStage ?? '';
+        // Store xmlOffset for precise identification
+        row.dataset.xmlOffset = String(s.xmlOffset ?? '');
         row.innerHTML = `
             <svg fill="currentColor" viewBox="0 0 16 16">
                 ${isStage
@@ -129,9 +134,12 @@ function renderSprites(sprites, projData) {
 function onSpriteClick(sprite, projData) {
     const el = $('ov-sprite-list');
     el.querySelectorAll('.ov-row').forEach(r => {
-        const match = r.dataset.name === sprite.name
-            && r.dataset.type === sprite.type
-            && (r.dataset.parentStage ?? '') === (sprite.parentStage ?? '');
+        // Use xmlOffset for precise matching when available
+        const match = r.dataset.xmlOffset && sprite.xmlOffset != null
+            ? r.dataset.xmlOffset === String(sprite.xmlOffset)
+            : (r.dataset.name === sprite.name
+                && r.dataset.type === sprite.type
+                && (r.dataset.parentStage ?? '') === (sprite.parentStage ?? ''));
         r.classList.toggle('active', match);
     });
     renderAssets(sprite, projData);
@@ -294,104 +302,6 @@ function buildMediaMap(mediaXml, projectXml) {
 }
 
 /**
- * Build a map from assetName → { type: 'costume'|'sound', ownerName: string }
- * by scanning every <stage> and <sprite> block in projectXml.
- * Used by the fallback path to associate mediaMap.byName entries with their owners.
- */
-function buildOwnershipMap(projectXml, refMap) {
-    const ownerMap = {}; // name → { type, ownerName }
-
-    function scanTarget(blockXml, ownerName) {
-        // Costumes
-        const cStart = blockXml.indexOf('<costumes');
-        const cEnd   = blockXml.indexOf('</costumes>', cStart !== -1 ? cStart : 0);
-        if (cStart !== -1 && cEnd !== -1 && cEnd > cStart) {
-            const region = blockXml.slice(cStart, cEnd + 11);
-            for (const a of extractTagAttrs(region, 'costume')) {
-                const name = a.name ? decodeEntities(a.name) : null;
-                if (name && !ownerMap[name]) ownerMap[name] = { type: 'costume', ownerName };
-            }
-            // Also handle <ref> tags resolved via refMap
-            for (const a of extractTagAttrs(region, 'ref')) {
-                const resolved = a.id ? refMap[a.id] : null;
-                if (resolved && resolved.assetType === 'costume' && !ownerMap[resolved.name]) {
-                    ownerMap[resolved.name] = { type: 'costume', ownerName };
-                }
-            }
-        }
-        // Sounds
-        const sStart = blockXml.indexOf('<sounds');
-        const sEnd   = blockXml.indexOf('</sounds>', sStart !== -1 ? sStart : 0);
-        if (sStart !== -1 && sEnd !== -1 && sEnd > sStart) {
-            const region = blockXml.slice(sStart, sEnd + 9);
-            for (const a of extractTagAttrs(region, 'sound')) {
-                const name = a.name ? decodeEntities(a.name) : null;
-                if (name && !ownerMap[name]) ownerMap[name] = { type: 'sound', ownerName };
-            }
-            for (const a of extractTagAttrs(region, 'ref')) {
-                const resolved = a.id ? refMap[a.id] : null;
-                if (resolved && resolved.assetType === 'sound' && !ownerMap[resolved.name]) {
-                    ownerMap[resolved.name] = { type: 'sound', ownerName };
-                }
-            }
-        }
-    }
-
-    // Scan every <stage> (strip its <sprites> child to get stage-own assets only)
-    let searchFrom = 0;
-    while (searchFrom < projectXml.length) {
-        const idx = projectXml.indexOf('<stage', searchFrom);
-        if (idx === -1) break;
-        const after = projectXml[idx + 6];
-        if (after && !/[\s>\/]/.test(after)) { searchFrom = idx + 1; continue; }
-        const block = extractTag(projectXml.slice(idx), 'stage');
-        if (!block) { searchFrom = idx + 1; continue; }
-        // Get stage name
-        let j = 0, inQ = null;
-        while (j < block.length) {
-            const c = block[j];
-            if (inQ) { const ci = block.indexOf(inQ, j + 1); if (ci === -1) break; j = ci + 1; inQ = null; continue; }
-            if (c === '"' || c === "'") { inQ = c; j++; continue; }
-            if (c === '>') break;
-            j++;
-        }
-        const stageAttrs = parseAttrs(block.slice(0, j + 1));
-        const stageName = stageAttrs.name || 'Stage';
-        // Strip <sprites> so we only scan stage-own assets
-        const spIdx = block.indexOf('<sprites');
-        const stageBlock = spIdx !== -1 ? block.slice(0, spIdx) + '</stage>' : block;
-        scanTarget(stageBlock, stageName);
-        searchFrom = idx + block.length;
-    }
-
-    // Scan every <sprite>
-    searchFrom = 0;
-    while (searchFrom < projectXml.length) {
-        const idx = projectXml.indexOf('<sprite', searchFrom);
-        if (idx === -1) break;
-        const after = projectXml[idx + 7];
-        if (after && !/[\s>\/]/.test(after)) { searchFrom = idx + 1; continue; }
-        const block = extractTag(projectXml.slice(idx), 'sprite');
-        if (!block) { searchFrom = idx + 1; continue; }
-        // Get sprite name from opening tag
-        let j = 0, inQ = null;
-        while (j < block.length) {
-            const c = block[j];
-            if (inQ) { const ci = block.indexOf(inQ, j + 1); if (ci === -1) break; j = ci + 1; inQ = null; continue; }
-            if (c === '"' || c === "'") { inQ = c; j++; continue; }
-            if (c === '>') break;
-            j++;
-        }
-        const spriteAttrs = parseAttrs(block.slice(0, j + 1));
-        const spriteName = spriteAttrs.name || 'Sprite';
-        scanTarget(block, spriteName);
-        searchFrom = idx + block.length;
-    }
-
-    return ownerMap;
-}
-
-/**
  * Build a map from id → {name, type} by scanning the entire projectXml for
  * <costume> and <sound> tags. Used to resolve <ref id="X"/> references.
  */
@@ -417,14 +327,35 @@ function buildRefMap(projectXml, mediaXml) {
 }
 
 /**
- * Find the XML block for a specific sprite or stage target, handling:
- * - Multiple stages
- * - Sprites with same name in different stages (uses parentStage)
- * - Stage pentrails and other huge base64 attributes
+ * Find the XML block for a specific sprite or stage target.
+ *
+ * KEY FIX: Uses sprite.xmlOffset (the character position in projectXml) for
+ * precise identification. This eliminates all ambiguity when multiple sprites
+ * or stages share the same name.
  */
 function findTargetBlock(projectXml, sprite) {
+    // ── Use xmlOffset for precise lookup when available ──
+    if (sprite.xmlOffset != null && sprite.xmlOffset >= 0) {
+        const tagName = sprite.type === 'stage' ? 'stage' : 'sprite';
+        // Verify that the tag at this offset matches
+        if (projectXml.startsWith(`<${tagName}`, sprite.xmlOffset)) {
+            const block = extractTag(projectXml.slice(sprite.xmlOffset), tagName);
+            if (block) {
+                if (sprite.type === 'stage') {
+                    // Strip child <sprites> to only get stage's own assets
+                    const spIdx = block.indexOf('<sprites');
+                    return spIdx !== -1 ? block.slice(0, spIdx) + '</stage>' : block;
+                }
+                return block;
+            }
+        }
+        console.warn(`[findTargetBlock] xmlOffset ${sprite.xmlOffset} did not match expected <${tagName}>, falling back`);
+    }
+
+    // ── Fallback: name-based search (original logic) ──
+
     if (sprite.type === 'stage') {
-        // Scan for <stage tags robustly (indexOf-based, avoids regex issues with huge attrs)
+        // Scan for <stage tags robustly
         let searchFrom = 0;
         while (searchFrom < projectXml.length) {
             const idx = projectXml.indexOf('<stage', searchFrom);
@@ -435,12 +366,11 @@ function findTargetBlock(projectXml, sprite) {
             const block = extractTag(projectXml.slice(idx), 'stage');
             if (!block) { searchFrom = idx + 1; continue; }
 
-            // Read name from opening tag using parseAttrs (safe with huge pentrails attrs)
+            // Read name from opening tag
             let j = 0, inQ = null;
             while (j < block.length) {
                 const c = block[j];
                 if (inQ) {
-                    // Skip over quoted values using indexOf for efficiency
                     const closeIdx = block.indexOf(inQ, j + 1);
                     if (closeIdx === -1) break;
                     j = closeIdx + 1;
@@ -456,7 +386,6 @@ function findTargetBlock(projectXml, sprite) {
             const name = attrs.name || 'Stage';
 
             if (name === sprite.name) {
-                // Strip child <sprites> to only get the stage's own costumes/sounds
                 const spIdx = block.indexOf('<sprites');
                 return spIdx !== -1 ? block.slice(0, spIdx) + '</stage>' : block;
             }
@@ -484,7 +413,6 @@ function findTargetBlock(projectXml, sprite) {
         const start = m.index;
         const block = extractTag(projectXml.slice(start), 'sprite');
         if (!block) continue;
-        // Determine parent stage using indexOf-based scanning (safe with huge pentrails)
         const parentStage = _findLastStageName(projectXml, start);
         candidates.push({ block, stage: parentStage });
     }
@@ -498,7 +426,6 @@ function findTargetBlock(projectXml, sprite) {
 
 /**
  * Find the name of the last <stage> tag appearing before position `beforePos` in xml.
- * Uses indexOf-based scanning to safely skip over huge pentrails attributes.
  */
 function _findLastStageName(xml, beforePos) {
     let lastName = 'Stage';
@@ -509,7 +436,6 @@ function _findLastStageName(xml, beforePos) {
         if (idx === -1) break;
         const after = region[idx + 6];
         if (after && !/[\s>\/]/.test(after)) { searchFrom = idx + 1; continue; }
-        // Read name attribute from this <stage> opening tag
         let i = idx + 6, inQ = null;
         while (i < region.length) {
             const c = region[i];
@@ -529,6 +455,175 @@ function _findLastStageName(xml, beforePos) {
     }
     return lastName;
 }
+
+/**
+ * Decode a Snap! mediaID string into its components.
+ */
+function parseMediaID(mediaID) {
+    if (!mediaID) return null;
+    const cstIdx = mediaID.indexOf('_cst_');
+    const sndIdx = mediaID.indexOf('_snd_');
+    if (cstIdx !== -1) {
+        const name  = mediaID.slice(cstIdx + 5);
+        const prefix = mediaID.slice(0, cstIdx);
+        const ownerRaw = prefix.slice(prefix.indexOf('_') + 1);
+        return { owner: ownerRaw, assetType: 'costume', name };
+    }
+    if (sndIdx !== -1) {
+        const name  = mediaID.slice(sndIdx + 5);
+        const prefix = mediaID.slice(0, sndIdx);
+        const ownerRaw = prefix.slice(prefix.indexOf('_') + 1);
+        return { owner: ownerRaw, assetType: 'sound', name };
+    }
+    return null;
+}
+
+/**
+ * Extract asset info from a section of XML (<costumes>...</costumes> or <sounds>...</sounds>),
+ * handling both <costume>/<sound> tags AND <ref id="X"/> / <ref mediaID="Y"/> tags.
+ *
+ * FIX: Only considers <ref> tags that appear inside <item> wrappers within the
+ * costumes/sounds list, not inside <script> or other nested blocks.
+ *
+ * Returns an array of { name, id, mediaID, hasImage, hasSound, isRef, owner }
+ */
+function extractAssetsFromRegion(xml, assetTag, refMap) {
+    const assets = [];
+
+    // First, extract the <list> inside the section — this is where the actual
+    // asset items live. Refs inside <scripts> or other blocks are NOT assets.
+    const listXml = extractTag(xml, 'list');
+    if (!listXml) {
+        // No <list> found — try scanning the raw section (backwards compat)
+        return _extractAssetsRaw(xml, assetTag, refMap);
+    }
+
+    // Now scan only within the <list> for <item> wrappers
+    // Each <item> should contain exactly one <costume>, <sound>, or <ref>
+    let pos = 0;
+    while (pos < listXml.length) {
+        const itemStart = listXml.indexOf('<item', pos);
+        if (itemStart === -1) break;
+        const afterItem = listXml[itemStart + 5];
+        if (afterItem && !/[\s>\/]/.test(afterItem)) { pos = itemStart + 1; continue; }
+
+        const itemBlock = extractTag(listXml.slice(itemStart), 'item');
+        if (!itemBlock) { pos = itemStart + 1; continue; }
+
+        // Look for the asset tag or <ref> inside this <item>
+        const assetResult = _extractSingleAsset(itemBlock, assetTag, refMap);
+        if (assetResult) {
+            assets.push(assetResult);
+        }
+
+        pos = itemStart + itemBlock.length;
+    }
+
+    return assets;
+}
+
+/**
+ * Extract a single asset from an <item> block.
+ * Looks for <costume>/<sound> first, then <ref>.
+ */
+function _extractSingleAsset(itemXml, assetTag, refMap) {
+    // Check for direct asset tag
+    const assetIdx = itemXml.indexOf('<' + assetTag);
+    if (assetIdx !== -1) {
+        const afterChar = itemXml[assetIdx + assetTag.length + 1];
+        if (afterChar && /[\s>\/]/.test(afterChar)) {
+            // Parse the tag attributes
+            let i = assetIdx + assetTag.length + 1;
+            let inQ = null;
+            while (i < itemXml.length) {
+                const c = itemXml[i];
+                if (inQ) {
+                    const ci = itemXml.indexOf(inQ, i);
+                    if (ci === -1) { i = itemXml.length; break; }
+                    i = ci + 1; inQ = null; continue;
+                }
+                if (c === '"' || c === "'") { inQ = c; i++; continue; }
+                if (c === '>') break;
+                i++;
+            }
+            const tagStr = itemXml.slice(assetIdx, i + 1);
+            const attrs = parseAttrs(tagStr);
+            return {
+                name: attrs.name ? decodeEntities(attrs.name) : null,
+                id: attrs.id || null,
+                mediaID: attrs.mediaID || null,
+                hasImage: !!(attrs.image && attrs.image.startsWith('data:')),
+                hasSound: !!(attrs.sound && attrs.sound.startsWith('data:')),
+                isRef: false,
+            };
+        }
+    }
+
+    // Check for <ref> tag
+    const refIdx = itemXml.indexOf('<ref');
+    if (refIdx !== -1) {
+        const afterChar = itemXml[refIdx + 4];
+        if (afterChar && /[\s>\/]/.test(afterChar)) {
+            let i = refIdx + 4;
+            while (i < itemXml.length && itemXml[i] !== '>') i++;
+            const tagStr = itemXml.slice(refIdx, i + 1);
+            const attrs = parseAttrs(tagStr);
+
+            // Case 1: <ref mediaID="...">
+            if (attrs.mediaID) {
+                const parsed = parseMediaID(attrs.mediaID);
+                if (parsed && parsed.assetType === assetTag) {
+                    return {
+                        name: parsed.name,
+                        id: null,
+                        mediaID: attrs.mediaID,
+                        hasImage: false,
+                        hasSound: false,
+                        isRef: true,
+                        owner: parsed.owner,
+                    };
+                }
+            }
+
+            // Case 2: <ref id="X"/>
+            const refId = attrs.id;
+            const resolved = refId ? refMap[refId] : null;
+            if (resolved && resolved.assetType === assetTag) {
+                return {
+                    name: resolved.name,
+                    id: refId,
+                    mediaID: null,
+                    hasImage: false,
+                    hasSound: false,
+                    isRef: true,
+                    owner: null,
+                };
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Fallback: raw extraction without <list>/<item> structure.
+ * Used when the section doesn't have a proper <list> wrapper.
+ */
+function _extractAssetsRaw(xml, assetTag, refMap) {
+    const assets = [];
+    for (const a of extractTagAttrs(xml, assetTag)) {
+        assets.push({
+            name: a.name ? decodeEntities(a.name) : null,
+            id: a.id || null,
+            mediaID: a.mediaID || null,
+            hasImage: !!(a.image && a.image.startsWith('data:')),
+            hasSound: !!(a.sound && a.sound.startsWith('data:')),
+            isRef: false,
+        });
+    }
+    return assets;
+}
+
 
 /**
  * Main asset rendering — always uses string-based parsing (robust with Snap XML).
@@ -556,143 +651,9 @@ function renderAssets(sprite, projData) {
     }
 }
 
-/**
- * Decode a Snap! mediaID string into its components.
- * Format: {projectName}_{spriteName}_{cst|snd}_{assetName}
- * e.g. "Snake_snake_cst_tetris-Sheet" → { owner: "snake", assetType: "costume", name: "tetris-Sheet" }
- * Returns null if the format is not recognised.
- */
-function parseMediaID(mediaID) {
-    if (!mediaID) return null;
-    // Split on first two underscores to get projectName and spriteName,
-    // then the type token (cst/snd), then the rest is the asset name.
-    // Pattern: <project>_<sprite>_<cst|snd>_<name>
-    const cstIdx = mediaID.indexOf('_cst_');
-    const sndIdx = mediaID.indexOf('_snd_');
-    if (cstIdx !== -1) {
-        const name  = mediaID.slice(cstIdx + 5);          // after "_cst_"
-        const prefix = mediaID.slice(0, cstIdx);           // "Project_sprite"
-        const ownerRaw = prefix.slice(prefix.indexOf('_') + 1); // strip project prefix
-        return { owner: ownerRaw, assetType: 'costume', name };
-    }
-    if (sndIdx !== -1) {
-        const name  = mediaID.slice(sndIdx + 5);
-        const prefix = mediaID.slice(0, sndIdx);
-        const ownerRaw = prefix.slice(prefix.indexOf('_') + 1);
-        return { owner: ownerRaw, assetType: 'sound', name };
-    }
-    return null;
-}
-
-/**
- * Extract asset info from a section of XML, handling both <costume>/<sound> tags
- * AND <ref id="X"/> / <ref mediaID="Y"/> tags (Snap's deduplication mechanism).
- *
- * Returns an array of { name, id, mediaID, hasImage, hasSound, isRef, owner }
- */
-function extractAssetsFromRegion(xml, assetTag, refMap) {
-    const assets = [];
-    // Scan for both <assetTag ...> and <ref ...> within <item> wrappers
-    let pos = 0;
-    while (pos < xml.length) {
-        // Find next <item> or next tag of interest
-        const nextAsset = xml.indexOf('<' + assetTag, pos);
-        const nextRef = xml.indexOf('<ref', pos);
-
-        // Determine which comes first
-        let useAsset = nextAsset !== -1;
-        let useRef = nextRef !== -1;
-
-        if (useAsset && useRef) {
-            if (nextRef < nextAsset) useAsset = false;
-            else useRef = false;
-        }
-
-        if (!useAsset && !useRef) break;
-
-        if (useAsset) {
-            const tagIdx = nextAsset;
-            const afterChar = xml[tagIdx + assetTag.length + 1];
-            if (afterChar && !/[\s>\/]/.test(afterChar)) { pos = tagIdx + 1; continue; }
-
-            // Parse opening tag attributes
-            let i = tagIdx + assetTag.length + 1;
-            let inQ = null;
-            while (i < xml.length) {
-                const c = xml[i];
-                if (inQ) {
-                    const ci = xml.indexOf(inQ, i);
-                    if (ci === -1) { i = xml.length; break; }
-                    i = ci + 1; inQ = null; continue;
-                }
-                if (c === '"' || c === "'") { inQ = c; i++; continue; }
-                if (c === '>') break;
-                i++;
-            }
-            const tagStr = xml.slice(tagIdx, i + 1);
-            const attrs = parseAttrs(tagStr);
-            assets.push({
-                name: attrs.name ? decodeEntities(attrs.name) : null,
-                id: attrs.id || null,
-                mediaID: attrs.mediaID || null,
-                hasImage: !!(attrs.image && attrs.image.startsWith('data:')),
-                hasSound: !!(attrs.sound && attrs.sound.startsWith('data:')),
-                isRef: false,
-            });
-            pos = i + 1;
-        } else {
-            // <ref id="X"/> or <ref mediaID="Y"/>
-            const tagIdx = nextRef;
-            const afterChar = xml[tagIdx + 4];
-            if (afterChar && !/[\s>\/]/.test(afterChar)) { pos = tagIdx + 1; continue; }
-
-            // Parse <ref .../>
-            let i = tagIdx + 4;
-            while (i < xml.length && xml[i] !== '>') i++;
-            const tagStr = xml.slice(tagIdx, i + 1);
-            const attrs = parseAttrs(tagStr);
-
-            // Case 1: <ref mediaID="Snake_snake_cst_tetris-Sheet"> (Snap 11+)
-            if (attrs.mediaID) {
-                const parsed = parseMediaID(attrs.mediaID);
-                if (parsed && parsed.assetType === assetTag) {
-                    assets.push({
-                        name: parsed.name,
-                        id: null,
-                        mediaID: attrs.mediaID,
-                        hasImage: false,
-                        hasSound: false,
-                        isRef: true,
-                        owner: parsed.owner,
-                    });
-                }
-                pos = i + 1;
-                continue;
-            }
-
-            // Case 2: <ref id="X"/> — look up in refMap
-            const refId = attrs.id;
-            const resolved = refId ? refMap[refId] : null;
-            if (resolved && resolved.assetType === assetTag) {
-                assets.push({
-                    name: resolved.name,
-                    id: refId,
-                    mediaID: null,
-                    hasImage: false,
-                    hasSound: false,
-                    isRef: true,
-                    owner: null,
-                });
-            }
-            pos = i + 1;
-        }
-    }
-    return assets;
-}
-
 
 function _renderAssetsInner(el, badge, sprite, projData) {
-    // Find the XML block for this stage/sprite
+    // Find the XML block for this stage/sprite using xmlOffset for precision
     const blockXml = findTargetBlock(projData.projectXml, sprite);
 
     if (!blockXml) {
@@ -704,13 +665,11 @@ function _renderAssetsInner(el, badge, sprite, projData) {
     const refMap = buildRefMap(projData.projectXml, projData.mediaXml);
     const mediaMap = buildMediaMap(projData.mediaXml, projData.projectXml);
 
-    // ── Extract costumes ──
+    // ── Extract costumes using extractTag for proper nesting ──
     const costumes = [];
-    const costumesStart = blockXml.indexOf('<costumes');
-    const costumesEnd = blockXml.indexOf('</costumes>', costumesStart !== -1 ? costumesStart : 0);
-    if (costumesStart !== -1 && costumesEnd !== -1 && costumesEnd > costumesStart) {
-        const costumesRegion = blockXml.slice(costumesStart, costumesEnd + 11);
-        const found = extractAssetsFromRegion(costumesRegion, 'costume', refMap);
+    const costumesSection = extractTag(blockXml, 'costumes');
+    if (costumesSection) {
+        const found = extractAssetsFromRegion(costumesSection, 'costume', refMap);
         for (const a of found) {
             costumes.push({
                 name: a.name || `costume-${a.id || '?'}`,
@@ -723,13 +682,11 @@ function _renderAssetsInner(el, badge, sprite, projData) {
         }
     }
 
-    // ── Extract sounds ──
+    // ── Extract sounds using extractTag for proper nesting ──
     const sounds = [];
-    const soundsStart = blockXml.indexOf('<sounds');
-    const soundsEnd = blockXml.indexOf('</sounds>', soundsStart !== -1 ? soundsStart : 0);
-    if (soundsStart !== -1 && soundsEnd !== -1 && soundsEnd > soundsStart) {
-        const soundsRegion = blockXml.slice(soundsStart, soundsEnd + 9);
-        const found = extractAssetsFromRegion(soundsRegion, 'sound', refMap);
+    const soundsSection = extractTag(blockXml, 'sounds');
+    if (soundsSection) {
+        const found = extractAssetsFromRegion(soundsSection, 'sound', refMap);
         for (const a of found) {
             sounds.push({
                 name: a.name || `sound-${a.id || '?'}`,
@@ -742,58 +699,38 @@ function _renderAssetsInner(el, badge, sprite, projData) {
         }
     }
 
-    // ── Fallback: if blockXml costumes/sounds have no resolvable data (no id, no inline
-    //    image), try extracting asset names directly from the blockXml <costume name="...">
-    //    and <sound name="..."> tags and matching them against mediaMap.byName.
-    //    This handles projects where <costume>/<sound> carry only a name attribute.
+    // ── Fallback: if no costumes/sounds found via structured extraction,
+    //    try matching by name from mediaMap — but ONLY for names that appear
+    //    directly in THIS target's <costumes>/<sounds> blocks. ──
     if (costumes.length === 0 && sounds.length === 0) {
-        // Strategy 1: collect names directly declared in THIS target's <costumes>/<sounds> blocks
         const costumeNamesInBlock = new Set();
         const soundNamesInBlock   = new Set();
 
-        if (costumesStart !== -1 && costumesEnd !== -1 && costumesEnd > costumesStart) {
-            const region = blockXml.slice(costumesStart, costumesEnd + 11);
-            for (const a of extractTagAttrs(region, 'costume')) {
+        if (costumesSection) {
+            for (const a of extractTagAttrs(costumesSection, 'costume')) {
                 const name = a.name ? decodeEntities(a.name) : null;
                 if (name) costumeNamesInBlock.add(name);
             }
         }
-        if (soundsStart !== -1 && soundsEnd !== -1 && soundsEnd > soundsStart) {
-            const region = blockXml.slice(soundsStart, soundsEnd + 9);
-            for (const a of extractTagAttrs(region, 'sound')) {
+        if (soundsSection) {
+            for (const a of extractTagAttrs(soundsSection, 'sound')) {
                 const name = a.name ? decodeEntities(a.name) : null;
                 if (name) soundNamesInBlock.add(name);
             }
         }
 
-        // Strategy 2: if projectXml has tags, build ownership map as cross-check
-        const ownerMap = (Object.keys(refMap).length > 0)
-            ? buildOwnershipMap(projData.projectXml, refMap)
-            : {};
-
+        // Only include assets whose names are explicitly declared in THIS block
         for (const [name, entry] of Object.entries(mediaMap.byName)) {
-            // Determine if this asset belongs to the current target:
-            // - First check if its name appears directly in the blockXml sections (most reliable)
-            // - Fall back to ownerMap if available
-            // - If neither source gives ANY ownership info at all, show all assets (last resort)
-            const inBlock = entry.type === 'image'
-                ? costumeNamesInBlock.has(name)
-                : soundNamesInBlock.has(name);
-            const owner = ownerMap[name];
-            const ownedByThis = inBlock || (owner && owner.ownerName === sprite.name);
-
-            // If we have no ownership info anywhere, include asset unconditionally (last resort)
-            const noOwnershipInfo = costumeNamesInBlock.size === 0 && soundNamesInBlock.size === 0
-                && Object.keys(ownerMap).length === 0;
-
-            if (!ownedByThis && !noOwnershipInfo) continue;
-
-            if (entry.type === 'image') {
+            if (entry.type === 'image' && costumeNamesInBlock.has(name)) {
                 costumes.push({ name, id: null, mediaID: null, hasImage: true, isRef: false });
-            } else if (entry.type === 'audio') {
+            } else if (entry.type === 'audio' && soundNamesInBlock.has(name)) {
                 sounds.push({ name, id: null, mediaID: null, hasSound: true, isRef: false });
             }
         }
+
+        // Last resort: if we have NO costume/sound names in the block at all,
+        // and the block truly has no <costumes>/<sounds> sections, show nothing.
+        // Do NOT fall back to showing all assets — that causes the duplicate bug.
     }
 
     const total = costumes.length + sounds.length;
@@ -809,11 +746,6 @@ function _renderAssetsInner(el, badge, sprite, projData) {
 
     // ── Helper: resolve image data for a costume ──
     function resolveImageData(costume) {
-        // 1. Inline image in blockXml (hasImage means image= was in the tag)
-        //    We need to find it from the media map by id or name
-        // 2. Via mediaID
-        // 3. Via id
-        // 4. Via name
         if (costume.hasImage && costume.id && mediaMap.byId[costume.id]) {
             return mediaMap.byId[costume.id].data;
         }
@@ -834,7 +766,6 @@ function _renderAssetsInner(el, badge, sprite, projData) {
         el.querySelectorAll('.ov-asset-menu.open').forEach(m => m.classList.remove('open'));
     }
     document.addEventListener('click', closeAllMenus, { capture: true, once: false });
-    // Clean up listener when the column is re-rendered
     const _cleanup = () => document.removeEventListener('click', closeAllMenus, { capture: true });
     const observer = new MutationObserver((_, obs) => { if (!el.isConnected) { _cleanup(); obs.disconnect(); } });
     observer.observe(document.body, { childList: true, subtree: true });
@@ -917,7 +848,6 @@ function _renderAssetsInner(el, badge, sprite, projData) {
                 </div>
                 <span class="ov-index-badge costume">#${i + 1}</span>`;
 
-            // Three-dots menu (download image if available)
             if (imgData) {
                 const ext = imgData.startsWith('data:image/svg') ? 'svg'
                           : imgData.startsWith('data:image/png') ? 'png'
@@ -951,7 +881,6 @@ function _renderAssetsInner(el, badge, sprite, projData) {
         el.appendChild(head);
 
         sounds.forEach((s, i) => {
-            // Resolve sound data for playback
             let soundData = null;
             if (s.mediaID && mediaMap.byId[s.mediaID]) soundData = mediaMap.byId[s.mediaID].data;
             else if (s.id && mediaMap.byId[s.id]) soundData = mediaMap.byId[s.id].data;
@@ -964,7 +893,6 @@ function _renderAssetsInner(el, badge, sprite, projData) {
             const item = document.createElement('div');
             item.className = 'ov-asset-item ov-sound-item';
 
-            // Top row: icon + info + badge + menu
             const topRow = document.createElement('div');
             topRow.className = 'ov-sound-top';
 
@@ -983,7 +911,6 @@ function _renderAssetsInner(el, badge, sprite, projData) {
                 </div>
                 <span class="ov-index-badge sound">#${i + 1}</span>`;
 
-            // Three-dots menu (download sound if available)
             if (soundData) {
                 const ext = soundData.startsWith('data:audio/mpeg') ? 'mp3'
                           : soundData.startsWith('data:audio/wav')  ? 'wav'
@@ -1001,7 +928,6 @@ function _renderAssetsInner(el, badge, sprite, projData) {
 
             item.appendChild(topRow);
 
-            // Bottom: audio player (or placeholder if no data)
             if (soundData) {
                 const playerWrap = document.createElement('div');
                 playerWrap.className = 'ov-sound-player-wrap';
@@ -1016,7 +942,6 @@ function _renderAssetsInner(el, badge, sprite, projData) {
 
 // ── Helper ──
 async function getOrFetchProject(name) {
-    // Always re-fetch to ensure fresh parsing (no stale cache)
     const data = await getProject(name);
     appState.projectCache.set(name, data);
     return data;
