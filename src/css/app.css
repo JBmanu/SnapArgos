@@ -432,12 +432,16 @@ body::after {
 }
 
 /* ═══ SPRITE PANEL — project context indicator ════════════════════════════════ */
-/* Shows which project the sprite list belongs to */
+/* Shows which project the sprite list belongs to — hidden when empty */
 #spr-proj-lbl {
     @apply font-display text-[9px] rounded px-1.5 py-0.5;
     color: theme('colors.snap.amber');
     background: rgba(255, 158, 102, .10);
     border: 1px solid rgba(255, 158, 102, .20);
+    display: none;
+}
+#spr-proj-lbl:not(:empty) {
+    display: inline-block;
 }
 
 /* ═══ SELECTION COLUMN — counter + clear button grouped right ═════════════════ */
