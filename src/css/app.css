@@ -679,3 +679,18 @@ body::after {
     min-width: 18px;
     text-align: center;
 }
+
+/* ═══ SELECTION COLUMN — count + clear grouped right ══════════════════════════ */
+.sel-head-right {
+    @apply flex items-center gap-1.5 ml-auto;
+}
+.sel-count-pill {
+    @apply font-display text-[10px] rounded-md text-snap-text;
+    padding: 1px 7px;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(255, 255, 255, .08);
+    display: none;  /* hidden when empty, shown by JS */
+}
+.sel-count-pill:not(:empty) {
+    display: inline-block;
+}
