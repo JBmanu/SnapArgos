@@ -5,7 +5,8 @@
  */
 
 const IS_LOCAL = ['localhost', '127.0.0.1'].includes(location.hostname);
-const PROD_BASE = 'https://snap-argos.buizomanuel.workers.dev/snap-api';
+// https://snap.argos-dev-07.workers.dev/
+const PROD_BASE = 'https://snap.argos-dev-07.workers.dev/snap-api';
 
 console.log('[snap-api] ✓ module loaded, IS_LOCAL =', IS_LOCAL, ', hostname =', location.hostname);
 
