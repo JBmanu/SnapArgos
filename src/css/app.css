@@ -112,10 +112,10 @@ body::after {
     @apply flex flex-col gap-4;
 }
 
-/* Bottom row: files (left) + run sidebar (right) */
+/* Bottom row: files (left 2/3) + run sidebar (right 1/3) */
 .layout-bottom {
     @apply grid gap-4 items-start;
-    grid-template-columns: 1fr 380px;
+    grid-template-columns: 2fr 1fr;
 }
 
 /* Inside the Files card: drop zone (left) + file list (right) */
