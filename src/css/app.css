@@ -597,6 +597,7 @@ body::after {
     @apply rounded-lg font-display text-[10px] leading-[1.8] border border-snap-border
            text-snap-muted mt-2.5 bg-snap-surface2;
     padding: 9px 12px;
+    display: none;  /* shown by JS */
 }
 .detect-box strong {
     @apply text-snap-text;
@@ -633,6 +634,7 @@ body::after {
 }
 .prog-fill {
     @apply h-full bg-snap-accent rounded-sm transition-all duration-300;
+    width: 0%;
 }
 
 /* ═══ INLINE SPINNER ══════════════════════════════════════════════════════════ */
@@ -698,4 +700,76 @@ body::after {
 }
 .sel-count-pill:not(:empty) {
     display: inline-block;
+}
+
+/* ═══ REFACTORED INLINE STYLES ════════════════════════════════════════════════ */
+
+/* Card with no bottom margin (used when followed by layout-bottom) */
+.card-no-mb {
+    @apply mb-0;
+}
+
+/* Selection summary text in card header */
+.sel-summary {
+    @apply font-display text-[10px] text-snap-muted;
+}
+
+/* Sprite panel project label (col-head) — already styled via #spr-proj-lbl,
+   this class replaces the inline style fallback */
+.spr-proj-lbl {
+    @apply font-display text-[9px] ml-[3px] text-snap-muted2;
+}
+
+/* Mini button variant (Clear all buttons) */
+.btn-mini {
+    @apply text-[9px];
+    padding: 2px 8px;
+    display: none;  /* hidden by default, JS shows it */
+}
+
+/* Small button variant (Clear log) */
+.btn-small {
+    @apply text-[10px];
+    padding: 4px 10px;
+}
+
+/* Clear files button — mini + faded + margin */
+.btn-clear-files {
+    @apply opacity-50 ml-2;
+}
+
+/* File count badge in Files card header */
+.file-count-badge {
+    @apply ml-auto;
+}
+
+/* Selection list box with padding */
+.sel-list-box {
+    padding: 8px;
+}
+
+/* File list container */
+.file-list {
+    @apply flex flex-col gap-[5px];
+}
+
+/* Browse link inside drop zone */
+.browse-link {
+    @apply text-snap-accent underline cursor-pointer;
+}
+
+/* Hidden file input */
+.file-input-hidden {
+    @apply hidden;
+}
+
+/* Upload action bar (below drop zone) */
+.upload-action-bar {
+    @apply pt-3.5;
+    border-top: 1px solid theme('colors.snap.border');
+}
+
+/* Upload button icon */
+.upload-btn-icon {
+    @apply w-[15px] h-[15px];
 }

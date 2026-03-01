@@ -6,13 +6,13 @@
 <div class="layout">
 
   <!-- ① PROJECTS & SPRITES — full width -->
-  <div class="card" style="margin-bottom:0">
+  <div class="card card-no-mb">
     <div class="card-head">
       <div class="card-head-left">
         <div class="step-num">1</div>
         <span class="card-title">Projects &amp; Sprites</span>
       </div>
-      <span id="sel-summary" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted)"></span>
+      <span id="sel-summary" class="sel-summary"></span>
     </div>
     <div class="card-body">
       <div class="mode-banner" id="mode-banner">
@@ -43,7 +43,7 @@
                 d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-8 4.5L4 7m16 0v10l-8 4.5M4 7v10l8 4.5"/>
             </svg>
             <span>Stages / Sprites</span>
-            <span id="spr-proj-lbl" style="color:var(--muted2);font-size:9px;margin-left:3px"></span>
+            <span id="spr-proj-lbl" class="spr-proj-lbl"></span>
             <span class="col-head-badge" id="sprite-count-badge"></span>
           </div>
           <div class="list-box" id="sprite-list">
@@ -59,10 +59,10 @@
             <span>Selection</span>
             <div class="sel-head-right" id="sel-head-right">
               <span class="sel-count-pill" id="sel-count-badge"></span>
-              <button class="btn" id="btn-clear-sel" style="font-size:9px;padding:2px 8px;display:none">Clear all</button>
+              <button class="btn btn-mini" id="btn-clear-sel">Clear all</button>
             </div>
           </div>
-          <div class="list-box" id="sel-list" style="padding:8px">
+          <div class="list-box sel-list-box" id="sel-list">
             <div class="sel-empty-msg" id="sel-empty-msg">Nothing selected.<br/>Click projects<br/>or sprites.</div>
           </div>
         </div>
@@ -74,14 +74,14 @@
   <div class="layout-bottom">
 
     <!-- ② FILES -->
-    <div class="card" style="margin-bottom:0">
+    <div class="card card-no-mb">
       <div class="card-head">
         <div class="card-head-left">
           <div class="step-num">2</div>
           <span class="card-title">Files</span>
         </div>
-        <span id="file-count-badge" class="col-head-badge" style="margin-left:auto"></span>
-        <button class="btn" id="btn-clear-files" style="font-size:9px;padding:2px 8px;opacity:.5;display:none;margin-left:8px">Clear all</button>
+        <span id="file-count-badge" class="col-head-badge file-count-badge"></span>
+        <button class="btn btn-mini btn-clear-files" id="btn-clear-files">Clear all</button>
       </div>
       <div class="card-body">
         <div class="files-inner">
@@ -92,26 +92,25 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
                   d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
               </svg>
-              <div class="drop-text">Drop files or <span style="color:var(--accent);text-decoration:underline;cursor:pointer" id="browse-link">browse</span></div>
+              <div class="drop-text">Drop files or <span class="browse-link" id="browse-link">browse</span></div>
               <div class="drop-sub" id="drop-hint">Select a target first</div>
-              <input id="file-input" type="file" style="display:none" multiple/>
+              <input id="file-input" type="file" class="file-input-hidden" multiple/>
             </div>
-            <div style="padding-top:14px;border-top:1px solid var(--border)">
+            <div class="upload-action-bar">
               <button class="btn primary" id="btn-upload" disabled>
                 <div class="spinner"></div>
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="width:15px;height:15px">
+                <svg class="upload-btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                 </svg>
                 <span id="btn-label">Upload to Snap!</span>
               </button>
-
             </div>
           </div>
           <!-- Right: file list + detect box -->
           <div class="files-list-col">
-            <div id="file-list" style="display:flex;flex-direction:column;gap:5px"></div>
-            <div class="detect-box" id="detect-box" style="display:none"></div>
+            <div id="file-list" class="file-list"></div>
+            <div class="detect-box" id="detect-box"></div>
           </div>
         </div>
       </div>
@@ -125,7 +124,7 @@
             <div class="step-num">3</div>
             <span class="card-title">Run</span>
           </div>
-          <button class="btn" id="btn-clear-log" style="font-size:10px;padding:4px 10px">Clear</button>
+          <button class="btn btn-small" id="btn-clear-log">Clear</button>
         </div>
         <div class="card-body">
           <div class="log" id="log-panel">
@@ -136,7 +135,7 @@
               <span id="prog-label">Uploading…</span>
               <span id="prog-pct">0%</span>
             </div>
-            <div class="prog-track"><div class="prog-fill" id="prog-bar" style="width:0%"></div></div>
+            <div class="prog-track"><div class="prog-fill" id="prog-bar"></div></div>
           </div>
         </div>
       </div>
