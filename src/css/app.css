@@ -336,7 +336,7 @@ body::after {
 
 /* ── Project & sprite rows ─────────────────────────────────────────────────── */
 .proj-row, .spr-row {
-    @apply flex items-center gap-[7px] cursor-pointer transition-colors
+    @apply flex items-center gap-[7px] cursor-pointer transition-all
            duration-100 text-xs text-snap-muted select-none;
     padding: 7px 10px;
     border-bottom: 1px solid rgba(255, 255, 255, .025);
@@ -349,13 +349,32 @@ body::after {
     background: rgba(255, 255, 255, .03);
 }
 
+/* ── PROJECT SELECTED — high-contrast amber/orange style ─────────────────── */
 .proj-row.sel {
-    @apply text-snap-accent;
-    background: rgba(255, 107, 53, .07);
+    @apply text-snap-amber font-semibold;
+    background: rgba(255, 158, 102, .12);
+    border-left: 3px solid theme('colors.snap.amber');
+    padding-left: 7px;
 }
+.proj-row.sel .row-icon {
+    @apply opacity-100;
+    color: theme('colors.snap.amber');
+}
+.proj-row.sel .row-date {
+    @apply opacity-60;
+    color: theme('colors.snap.amber');
+}
+
+/* ── SPRITE SELECTED — blue style (unchanged) ───────────────────────────── */
 .spr-row.sel {
     @apply text-snap-blue;
-    background: rgba(77, 159, 255, .07);
+    background: rgba(77, 159, 255, .10);
+    border-left: 3px solid theme('colors.snap.blue');
+    padding-left: 7px;
+}
+.spr-row.sel .row-icon {
+    @apply opacity-100;
+    color: theme('colors.snap.blue');
 }
 
 .proj-row.locked, .spr-row.locked {
@@ -377,6 +396,7 @@ body::after {
     background: rgba(255, 255, 255, .12);
 }
 
+/* project actively browsed for sprites */
 .proj-row.panel-active {
     @apply text-snap-blue;
     background: rgba(77, 159, 255, .08);
@@ -411,6 +431,35 @@ body::after {
     padding: 1px 4px;
 }
 
+/* ═══ SPRITE PANEL — project context indicator ════════════════════════════════ */
+/* Shows which project the sprite list belongs to */
+#spr-proj-lbl {
+    @apply font-display text-[9px] rounded px-1.5 py-0.5;
+    color: theme('colors.snap.amber');
+    background: rgba(255, 158, 102, .10);
+    border: 1px solid rgba(255, 158, 102, .20);
+}
+
+/* ═══ SELECTION COLUMN — counter + clear button grouped right ═════════════════ */
+/* The col-head in the Selection column: push badge + clear button to the right */
+.three-col > div:nth-child(3) .col-head {
+    @apply flex-wrap;
+}
+.three-col > div:nth-child(3) .col-head .col-head-badge {
+    @apply ml-auto text-snap-text;
+    /* slightly more visible */
+    font-weight: 500;
+}
+/* Group the badge and clear btn tightly together */
+#sel-count-badge {
+    @apply ml-auto rounded px-1.5 py-0.5;
+    background: rgba(255, 255, 255, .06);
+    border: 1px solid rgba(255, 255, 255, .06);
+}
+#btn-clear-sel {
+    @apply ml-1;
+}
+
 /* ═══ SELECTION CHIPS ═════════════════════════════════════════════════════════ */
 .sel-chip {
     @apply flex items-start gap-1.5 rounded-[7px] border border-snap-border mb-1 bg-snap-surface2;
@@ -422,13 +471,22 @@ body::after {
     to   { opacity: 1; transform: none; }
 }
 
+/* Project chip — amber to match the new project selection color */
 .sel-chip.type-proj {
-    @apply border-snap-accent/30;
-    background: rgba(255, 107, 53, .05);
+    border-color: rgba(255, 158, 102, .35);
+    background: rgba(255, 158, 102, .06);
 }
+.sel-chip.type-proj .sel-chip-name {
+    color: theme('colors.snap.amber');
+}
+
+/* Sprite chip — blue (as before) */
 .sel-chip.type-spr {
     border-color: rgba(77, 159, 255, .3);
     background: rgba(77, 159, 255, .05);
+}
+.sel-chip.type-spr .sel-chip-name {
+    color: theme('colors.snap.blue');
 }
 
 .sel-chip-body {
@@ -592,4 +650,32 @@ body::after {
 }
 .fade-in {
     animation: fadeIn .3s ease forwards;
+}
+
+/* ═══ PROJECT ROW — has selected sprites indicator ════════════════════════════ */
+/* When in sprite mode, projects that have at least one sprite selected
+   get a colored left border + subtle background, similar to overview's .active */
+.proj-row.has-selected-sprites {
+    border-left: 2px solid theme('colors.snap.green');
+    padding-left: 8px;
+    background: rgba(94, 234, 223, .06);
+}
+.proj-row.has-selected-sprites .row-icon {
+    @apply opacity-80;
+    color: theme('colors.snap.green');
+}
+/* If it's also the panel-active project, the panel-active border wins (blue) */
+.proj-row.has-selected-sprites.panel-active {
+    border-left: 2px solid theme('colors.snap.blue');
+    background: rgba(77, 159, 255, .08);
+}
+
+/* ── Sprite count badge on project rows ───────────────────────────────────── */
+.row-spr-count {
+    @apply font-display text-[9px] rounded-full shrink-0 text-snap-green;
+    padding: 1px 6px;
+    background: rgba(94, 234, 223, .12);
+    border: 1px solid rgba(94, 234, 223, .20);
+    min-width: 18px;
+    text-align: center;
 }

@@ -68,6 +68,14 @@ function log(msg, type = 'info') {
     lp.appendChild(d); lp.scrollTop = lp.scrollHeight;
 }
 
+// ═══ HELPERS ═════════════════════════════════════════════════════════════════
+/** Returns the set of project names that have at least one sprite selected */
+function projectsWithSelectedSprites() {
+    const s = new Set();
+    for (const sp of selectedSprites) s.add(sp.projectName);
+    return s;
+}
+
 // ═══ PROJECT LIST ════════════════════════════════════════════════════════════
 function renderProjList() {
     const pl = $('project-list'); if (!pl) return; pl.innerHTML = '';
@@ -76,13 +84,30 @@ function renderProjList() {
     if (!appState.projects.length) { pl.innerHTML = '<div class="list-empty">No projects found</div>'; return; }
     const sorted = [...appState.projects].sort((a, b) =>
         a.projectname.localeCompare(b.projectname, undefined, { sensitivity: 'base' }));
+
+    // Projects that have sprites selected — show accent border
+    const sprProjs = projectsWithSelectedSprites();
+
     sorted.forEach(p => {
         const row = document.createElement('div');
         const bo = selMode === 'sprites';
-        row.className = 'proj-row' + (selectedProjects.has(p.projectname) ? ' sel' : '') + (bo ? ' browse-only' : '');
+        let cls = 'proj-row';
+        if (selectedProjects.has(p.projectname)) cls += ' sel';
+        if (bo) cls += ' browse-only';
+        // Highlight: project currently being browsed in sprite panel
+        if (bo && p.projectname === spritePanelProj) cls += ' panel-active';
+        // Highlight: project has selected sprites
+        if (bo && sprProjs.has(p.projectname)) cls += ' has-selected-sprites';
+        row.className = cls;
+
         const date = p.lastupdated ? new Date(p.lastupdated).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : '';
+
+        // Count of selected sprites for this project
+        const sprCount = selectedSprites.filter(s => s.projectName === p.projectname).length;
+
         row.innerHTML = `<svg class="row-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
           <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.projectname)}</span>
+          ${bo && sprCount > 0 ? `<span class="row-spr-count">${sprCount}</span>` : ''}
           ${bo ? '<span class="row-browse-tag">browse</span>' : `<span class="row-date">${date}</span>`}`;
         row.addEventListener('click', () => onProjClick(p.projectname, row));
         pl.appendChild(row);
@@ -91,8 +116,9 @@ function renderProjList() {
 
 async function onProjClick(name, row) {
     if (selMode === 'sprites') {
-        document.querySelectorAll('.proj-row.panel-active').forEach(r => r.classList.remove('panel-active'));
-        row.classList.add('panel-active'); loadSpritePanel(name); return;
+        // No need to manually toggle panel-active — renderProjList handles it via spritePanelProj
+        loadSpritePanel(name);
+        return;
     }
     if (selectedProjects.has(name)) { selectedProjects.delete(name); row.classList.remove('sel'); }
     else { selectedProjects.add(name); row.classList.add('sel'); selMode = 'projects'; }
@@ -103,6 +129,8 @@ async function onProjClick(name, row) {
 
 async function loadSpritePanel(projName) {
     spritePanelProj = projName;
+    // Re-render project list so panel-active is correctly applied
+    renderProjList();
     const lbl = $('spr-proj-lbl'); if (lbl) lbl.textContent = `— ${projName}`;
     const sl = $('sprite-list'); if (sl) sl.innerHTML = '<div class="list-empty"><span class="inline-spin"></span></div>';
     const sb = $('sprite-count-badge'); if (sb) sb.textContent = '';
@@ -152,7 +180,9 @@ function onSprClick(projName, sprite, row) {
         selMode = 'sprites';
     }
     if (selectedSprites.length === 0) selMode = 'none';
-    updateBanner(); updateSelPanel(); updateDropHint(); updateDetectBox(); checkUploadReady(); renderProjList();
+    updateBanner(); updateSelPanel(); updateDropHint(); updateDetectBox(); checkUploadReady();
+    // Re-render project list to update has-selected-sprites + sprite count badges
+    renderProjList();
 }
 
 function clearSelection() {
@@ -196,6 +226,7 @@ function updateSelPanel() {
             if (!selectedSprites.length) { selMode = 'none'; renderProjList(); }
             if (spritePanelProj) { const c = appState.projectCache.get(spritePanelProj); if (c) renderSprList(getSpritesFromXml(c.projectXml), spritePanelProj); }
             updateBanner(); updateSelPanel(); updateDropHint(); updateDetectBox(); checkUploadReady();
+            renderProjList();
         }));
     }
 }
@@ -340,19 +371,6 @@ async function uploadToProjects(vf) {
     log(`Done — ${targets.length} project(s) processed`, 'ok');
 }
 
-/**
- * Upload files to selected sprites.
- *
- * IMPORTANT: When modifying projectXml (injecting assets), the XML length changes,
- * which invalidates xmlOffset values for sprites that come AFTER the modified one.
- * To handle this, we recalculate offsets after each project save by re-parsing
- * the sprite list from the updated XML.
- *
- * Strategy: process all files for all sprites within a project in one pass,
- * then save once. The xmlOffset is only used for the FIRST operation on each sprite;
- * after that the XML has changed so we need fresh offsets. We handle this by
- * re-resolving offsets after each injection.
- */
 async function uploadToSprites(vf) {
     const bp = {};
     for (const s of selectedSprites) {
@@ -377,7 +395,6 @@ async function uploadToSprites(vf) {
                 if (isImg || isAud) {
                     for (const s of sprites) {
                         try {
-                            // Re-resolve xmlOffset from current XML state
                             const freshOffset = resolveCurrentOffset(projectXml, s);
                             let r;
                             if (isImg) r = await uploadImageToSprite(projectXml, mediaXml, s.spriteName, file, freshOffset);
@@ -408,14 +425,6 @@ async function uploadToSprites(vf) {
     log(`Done — ${pn.length} project(s) updated`, 'ok');
 }
 
-/**
- * Re-resolve the xmlOffset for a sprite in the current (possibly modified) projectXml.
- * After injecting assets, character positions shift, so we need to find the sprite again.
- *
- * Uses getSpritesFromXml to get fresh offsets and matches by name + parentStage.
- * If multiple sprites share the same name and parentStage, uses the original xmlOffset
- * as a hint to pick the closest match.
- */
 function resolveCurrentOffset(projectXml, spriteEntry) {
     const freshSprites = getSpritesFromXml(projectXml);
     const candidates = freshSprites.filter(s =>
@@ -424,7 +433,6 @@ function resolveCurrentOffset(projectXml, spriteEntry) {
     if (candidates.length === 0) return null;
     if (candidates.length === 1) return candidates[0].xmlOffset;
 
-    // Multiple candidates with same name — find the closest to original offset
     if (spriteEntry.xmlOffset != null) {
         let best = candidates[0];
         let bestDist = Math.abs(best.xmlOffset - spriteEntry.xmlOffset);
