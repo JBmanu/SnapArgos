@@ -44,6 +44,8 @@ export function initUploader() {
 
 function wireEvents() {
     const dz = $('drop-zone'), fi = $('file-input');
+    // Ensure multiple file selection is always enabled
+    if (fi) fi.setAttribute('multiple', '');
     if (dz) {
         dz.addEventListener('dragover', e => { e.preventDefault(); if (selMode !== 'none') dz.classList.add('over'); });
         dz.addEventListener('dragleave', () => dz.classList.remove('over'));
@@ -51,7 +53,7 @@ function wireEvents() {
         dz.addEventListener('click', e => { if (e.target.id !== 'browse-link' && selMode !== 'none') fi?.click(); });
     }
     $('browse-link')?.addEventListener('click', e => { e.stopPropagation(); if (selMode !== 'none') fi?.click(); });
-    fi?.addEventListener('change', () => { addFiles(fi.files); fi.value = ''; });
+    fi?.addEventListener('change', async () => { await addFiles([...fi.files]); fi.value = ''; });
     $('btn-clear-sel')?.addEventListener('click', clearSelection);
     $('btn-clear-files')?.addEventListener('click', () => { files = []; renderFiles(); updateDetectBox(); checkUploadReady(); log('Files cleared', 'dim'); });
     $('btn-upload')?.addEventListener('click', onUploadClick);
