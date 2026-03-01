@@ -129,8 +129,9 @@ body::after {
 }
 
 .files-list-col {
-    @apply flex flex-col gap-2;
+    @apply flex flex-col gap-2 overflow-y-auto;
     min-height: 120px;
+    max-height: 280px;
 }
 
 /* ═══ CARD ════════════════════════════════════════════════════════════════════ */
