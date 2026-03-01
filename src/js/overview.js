@@ -169,6 +169,17 @@ function downloadDataUrl(dataUrl, filename) {
     a.click();
 }
 
+// ── Download plain text/XML helper ──
+function downloadText(text, filename, mimeType = 'application/xml') {
+    const blob = new Blob([text], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
 export function initOverview() {
     console.log('[overview] init');
 
@@ -218,13 +229,20 @@ function renderProjects(projects) {
             <span class="ov-row-name">${esc(p.projectname)}</span>
             <span class="ov-row-meta">${date}</span>`;
 
-        // Three-dots menu with Delete
-        const menuBtn = makeMenuBtn([{
-            label: 'Delete project',
-            icon: ICON_DELETE,
-            danger: true,
-            action: () => onDeleteProject(p.projectname),
-        }]);
+        // Three-dots menu with Export + Delete
+        const menuBtn = makeMenuBtn([
+            {
+                label: 'Export project',
+                icon: ICON_DOWNLOAD,
+                action: () => onExportProject(p.projectname),
+            },
+            {
+                label: 'Delete project',
+                icon: ICON_DELETE,
+                danger: true,
+                action: () => onDeleteProject(p.projectname),
+            },
+        ]);
         row.appendChild(menuBtn);
 
         row.addEventListener('click', e => {
@@ -266,6 +284,31 @@ async function onProjectClick(name) {
     } catch (e) {
         if (myToken !== _loadToken) return;
         spriteEl.innerHTML = `<div class="ov-empty-state"><span style="color:#f87171">${esc(e.message)}</span></div>`;
+    }
+}
+
+// ── Export project as .xml ──
+async function onExportProject(projectName) {
+    try {
+        const data = await getOrFetchProject(projectName);
+        // Wrap projectXml + mediaXml into a full Snap! project envelope if needed
+        let xml = data.projectXml || '';
+        // If media is separate, embed it back (Snap! expects everything in one <project>)
+        if (data.mediaXml && !xml.includes(data.mediaXml.slice(0, 30))) {
+            // Insert <media> block before </project>
+            const closeTag = '</project>';
+            const idx = xml.lastIndexOf(closeTag);
+            if (idx !== -1) {
+                xml = xml.slice(0, idx) + data.mediaXml + closeTag;
+            } else {
+                xml += data.mediaXml;
+            }
+        }
+        const safeName = projectName.replace(/[^\w\-. ]/g, '_');
+        downloadText(xml, `${safeName}.xml`);
+    } catch (e) {
+        console.error('[overview] export project error:', e);
+        alert('Failed to export project: ' + e.message);
     }
 }
 
@@ -328,18 +371,26 @@ function renderSprites(sprites, projData, projectName) {
             <span class="ov-row-name">${esc(s.name)}</span>
             <span class="ov-row-tag">${s.type}</span>`;
 
-        // Three-dots menu with Delete
+        // Three-dots menu with Export + Delete
         const deleteLabel = isStage ? 'Delete stage' : 'Delete sprite';
+        const exportLabel = isStage ? 'Export stage' : 'Export sprite';
         const deleteMsg = isStage
             ? `Are you sure you want to delete stage <strong>"${esc(s.name)}"</strong> and all its sprites?<br><br>This will save the modified project to Snap! cloud.`
             : `Are you sure you want to delete sprite <strong>"${esc(s.name)}"</strong>?<br><br>This will save the modified project to Snap! cloud.`;
 
-        const menuBtn = makeMenuBtn([{
-            label: deleteLabel,
-            icon: ICON_DELETE,
-            danger: true,
-            action: () => onDeleteSpriteOrStage(s, projectName, deleteMsg),
-        }]);
+        const menuBtn = makeMenuBtn([
+            {
+                label: exportLabel,
+                icon: ICON_DOWNLOAD,
+                action: () => onExportSpriteOrStage(s, projectName),
+            },
+            {
+                label: deleteLabel,
+                icon: ICON_DELETE,
+                danger: true,
+                action: () => onDeleteSpriteOrStage(s, projectName, deleteMsg),
+            },
+        ]);
         row.appendChild(menuBtn);
 
         row.addEventListener('click', e => {
@@ -364,6 +415,24 @@ function onSpriteClick(sprite, projData) {
         r.classList.toggle('active', match);
     });
     renderAssets(sprite, projData);
+}
+
+// ── Export sprite or stage XML ──
+async function onExportSpriteOrStage(sprite, projectName) {
+    try {
+        const data = await getOrFetchProject(projectName);
+        const blockXml = findTargetBlock(data.projectXml, sprite);
+        if (!blockXml) {
+            alert(`Could not find "${sprite.name}" in project XML.`);
+            return;
+        }
+        const safeName = sprite.name.replace(/[^\w\-. ]/g, '_');
+        const filename = `${safeName}_${sprite.type}.xml`;
+        downloadText(blockXml, filename);
+    } catch (e) {
+        console.error('[overview] export sprite/stage error:', e);
+        alert('Failed to export: ' + e.message);
+    }
 }
 
 // ── Delete sprite or stage from project XML, save to cloud, refresh ──
