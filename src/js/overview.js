@@ -418,21 +418,219 @@ function onSpriteClick(sprite, projData) {
 }
 
 // ── Export sprite or stage XML ──
+// FIX: Wraps the export in the correct Snap! format and includes <media> data
 async function onExportSpriteOrStage(sprite, projectName) {
     try {
         const data = await getOrFetchProject(projectName);
-        const blockXml = findTargetBlock(data.projectXml, sprite);
-        if (!blockXml) {
-            alert(`Could not find "${sprite.name}" in project XML.`);
-            return;
+
+        if (sprite.type === 'sprite') {
+            // ── SPRITE EXPORT ──
+            // Snap! expects: <sprites><sprite>...</sprite><media>...</media></sprites>
+
+            // Get the FULL sprite block (including its costumes, sounds, scripts)
+            const spriteBlock = _findFullSpriteBlock(data.projectXml, sprite);
+            if (!spriteBlock) {
+                alert(`Could not find sprite "${sprite.name}" in project XML.`);
+                return;
+            }
+
+            // Collect relevant media entries for this sprite
+            const relevantMedia = _collectRelevantMedia(spriteBlock, data.mediaXml);
+
+            // Wrap in <sprites> envelope with media
+            const xml = `<sprites>${spriteBlock}${relevantMedia}</sprites>`;
+
+            const safeName = sprite.name.replace(/[^\w\-. ]/g, '_');
+            downloadText(xml, `${safeName}.xml`);
+
+        } else {
+            // ── STAGE EXPORT ──
+            // For stages, export the full <project> with only this stage's scene,
+            // OR export as a self-contained block with media.
+            // Snap! doesn't have a native "export single stage" — stages are part
+            // of scenes inside a project. We export the full stage block (WITH
+            // child sprites) plus its media.
+
+            const stageBlock = _findFullStageBlock(data.projectXml, sprite);
+            if (!stageBlock) {
+                alert(`Could not find stage "${sprite.name}" in project XML.`);
+                return;
+            }
+
+            // Collect relevant media for the stage and all its child sprites
+            const relevantMedia = _collectRelevantMedia(stageBlock, data.mediaXml);
+
+            // Wrap in a minimal project-like envelope so it's useful
+            const xml = `<stage-export name="${esc(sprite.name)}">${stageBlock}${relevantMedia}</stage-export>`;
+
+            const safeName = sprite.name.replace(/[^\w\-. ]/g, '_');
+            downloadText(xml, `${safeName}_stage.xml`);
         }
-        const safeName = sprite.name.replace(/[^\w\-. ]/g, '_');
-        const filename = `${safeName}_${sprite.type}.xml`;
-        downloadText(blockXml, filename);
     } catch (e) {
         console.error('[overview] export sprite/stage error:', e);
         alert('Failed to export: ' + e.message);
     }
+}
+
+/**
+ * Find the FULL sprite block (not stripped) for export purposes.
+ * Unlike findTargetBlock which strips <sprites> from stages, this returns
+ * the complete <sprite>...</sprite> XML.
+ */
+function _findFullSpriteBlock(projectXml, sprite) {
+    // Use xmlOffset for precise lookup
+    if (sprite.xmlOffset != null && sprite.xmlOffset >= 0) {
+        if (projectXml.startsWith('<sprite', sprite.xmlOffset)) {
+            return extractTag(projectXml.slice(sprite.xmlOffset), 'sprite');
+        }
+    }
+
+    // Fallback: name-based search
+    const nameEsc = escRe(sprite.name);
+    const re = new RegExp(`<sprite[\\s][^>]*\\bname="${nameEsc}"[^>]*>`, 'g');
+    const m = re.exec(projectXml);
+    if (!m) return null;
+    return extractTag(projectXml.slice(m.index), 'sprite');
+}
+
+/**
+ * Find the FULL stage block (WITH child sprites) for export purposes.
+ * Unlike findTargetBlock which strips child <sprites>, this returns everything.
+ */
+function _findFullStageBlock(projectXml, sprite) {
+    // Use xmlOffset for precise lookup
+    if (sprite.xmlOffset != null && sprite.xmlOffset >= 0) {
+        if (projectXml.startsWith('<stage', sprite.xmlOffset)) {
+            return extractTag(projectXml.slice(sprite.xmlOffset), 'stage');
+        }
+    }
+
+    // Fallback: find first <stage> with matching name
+    let searchFrom = 0;
+    while (searchFrom < projectXml.length) {
+        const idx = projectXml.indexOf('<stage', searchFrom);
+        if (idx === -1) break;
+        const after = projectXml[idx + 6];
+        if (after && !/[\s>\/]/.test(after)) { searchFrom = idx + 1; continue; }
+
+        const block = extractTag(projectXml.slice(idx), 'stage');
+        if (!block) { searchFrom = idx + 1; continue; }
+
+        // Check name
+        const nameMatch = block.match(/name="([^"]+)"/);
+        const name = nameMatch ? nameMatch[1] : 'Stage';
+        if (name === sprite.name) return block;
+
+        searchFrom = idx + block.length;
+    }
+
+    // Last fallback: first stage
+    const idx = projectXml.indexOf('<stage');
+    if (idx !== -1) return extractTag(projectXml.slice(idx), 'stage');
+    return null;
+}
+
+/**
+ * Collect only the <media> entries (costumes/sounds) that are referenced
+ * by the given XML block (via mediaID or id attributes).
+ *
+ * This avoids including the entire project's media in every sprite export.
+ * Returns a <media>...</media> string with only the relevant entries.
+ */
+function _collectRelevantMedia(blockXml, mediaXml) {
+    if (!mediaXml || mediaXml === '<media></media>') return '<media></media>';
+
+    // 1. Collect all mediaID and id values referenced in the block
+    const referencedIds = new Set();
+    const referencedMediaIDs = new Set();
+    const referencedNames = new Set();
+
+    // Find mediaID="..." references
+    for (const m of blockXml.matchAll(/\bmediaID="([^"]+)"/g)) {
+        referencedMediaIDs.add(m[1]);
+    }
+    // Find id="..." on costume/sound tags
+    for (const m of blockXml.matchAll(/<(?:costume|sound)[^>]+\bid="(\d+)"/g)) {
+        referencedIds.add(m[1]);
+    }
+    // Find <ref id="..."/> references
+    for (const m of blockXml.matchAll(/<ref[^>]+\bid="(\d+)"/g)) {
+        referencedIds.add(m[1]);
+    }
+    // Find <ref mediaID="..."/> references
+    for (const m of blockXml.matchAll(/<ref[^>]+\bmediaID="([^"]+)"/g)) {
+        referencedMediaIDs.add(m[1]);
+    }
+    // Collect costume/sound names for name-based fallback matching
+    for (const m of blockXml.matchAll(/<(?:costume|sound)[^>]+\bname="([^"]+)"/g)) {
+        referencedNames.add(m[1]);
+    }
+
+    // 2. Scan <media> for matching entries and collect them
+    const mediaEntries = [];
+
+    // Use a simple approach: find each <costume.../> or <costume>...</costume>
+    // and <sound.../> or <sound>...</sound> in media, check if it matches
+    const scanMediaTag = (tagName) => {
+        const re = new RegExp(`<${tagName}[\\s>]`, 'g');
+        let match;
+        while ((match = re.exec(mediaXml)) !== null) {
+            const start = match.index;
+            // Find end of this tag (could be self-closing or have children)
+            let i = start + tagName.length + 1;
+            let inQ = null;
+            while (i < mediaXml.length) {
+                const c = mediaXml[i];
+                if (inQ) {
+                    const ci = mediaXml.indexOf(inQ, i + 1);
+                    if (ci === -1) { i = mediaXml.length; break; }
+                    i = ci + 1; inQ = null; continue;
+                }
+                if (c === '"' || c === "'") { inQ = c; i++; continue; }
+                if (c === '>') break;
+                i++;
+            }
+            if (i >= mediaXml.length) break;
+
+            let entryXml;
+            if (mediaXml[i - 1] === '/') {
+                // Self-closing
+                entryXml = mediaXml.slice(start, i + 1);
+            } else {
+                // Has closing tag — use extractTag
+                const extracted = extractTag(mediaXml.slice(start), tagName);
+                if (extracted) {
+                    entryXml = extracted;
+                } else {
+                    re.lastIndex = i + 1;
+                    continue;
+                }
+            }
+
+            // Check if this entry matches any referenced id/mediaID/name
+            const idMatch = entryXml.match(/\bid="(\d+)"/);
+            const mediaIDMatch = entryXml.match(/\bmediaID="([^"]+)"/);
+            const nameMatch = entryXml.match(/\bname="([^"]+)"/);
+
+            const isReferenced =
+                (idMatch && referencedIds.has(idMatch[1])) ||
+                (mediaIDMatch && referencedMediaIDs.has(mediaIDMatch[1])) ||
+                (idMatch && referencedMediaIDs.has(idMatch[1])) ||
+                (nameMatch && referencedNames.has(nameMatch[1]));
+
+            if (isReferenced) {
+                mediaEntries.push(entryXml);
+            }
+
+            re.lastIndex = start + (entryXml ? entryXml.length : i + 1 - start);
+        }
+    };
+
+    scanMediaTag('costume');
+    scanMediaTag('sound');
+
+    if (mediaEntries.length === 0) return '<media></media>';
+    return `<media>${mediaEntries.join('')}</media>`;
 }
 
 // ── Delete sprite or stage from project XML, save to cloud, refresh ──
