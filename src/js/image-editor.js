@@ -245,9 +245,12 @@ function renderThumbs() {
 
         const info = document.createElement('div');
         info.className = 'imgedit-thumb-info';
-        // Show folder prefix if from a folder
-        const shortPath = entry.relPath.includes('/') ? '📁 ' + entry.relPath.split('/').slice(-2).join('/') : `${entry.w}×${entry.h}`;
-        info.textContent = shortPath;
+        const dims = `${entry.w}×${entry.h}`;
+        if (entry.relPath.includes('/')) {
+            info.textContent = `${dims} · 📁 ${entry.relPath.split('/').slice(-2).join('/')}`;
+        } else {
+            info.textContent = dims;
+        }
         thumb.appendChild(info);
 
         list.appendChild(thumb);

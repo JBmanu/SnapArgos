@@ -107,7 +107,8 @@
 .imgedit-actions-card {
   @apply flex-1;
 }
-.imgedit-actions-card > .card-head {
+.imgedit-actions-card > .card-head,
+.imgedit-images-card > .card-head {
   @apply gap-2;
 }
 
