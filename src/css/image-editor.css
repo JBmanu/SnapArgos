@@ -135,7 +135,7 @@
 
 /* ── Keep after run toggle (bookmark icon in card head) ─────────────────── */
 .imgedit-keep-toggle {
-  @apply cursor-pointer select-none flex items-center;
+  @apply cursor-pointer select-none flex items-center gap-1;
 }
 .imgedit-keep-toggle input {
   @apply hidden;
@@ -143,11 +143,19 @@
 .imgedit-keep-icon {
   @apply text-snap-muted2 transition-colors;
 }
+.imgedit-keep-label {
+  @apply font-display text-snap-muted2 transition-colors;
+  font-size: 0.68rem;
+}
 .imgedit-keep-toggle input:checked ~ .imgedit-keep-icon {
   @apply text-snap-accent;
   fill: currentColor;
 }
-.imgedit-keep-toggle:hover .imgedit-keep-icon {
+.imgedit-keep-toggle input:checked ~ .imgedit-keep-label {
+  @apply text-snap-accent;
+}
+.imgedit-keep-toggle:hover .imgedit-keep-icon,
+.imgedit-keep-toggle:hover .imgedit-keep-label {
   @apply text-snap-accent;
 }
 
