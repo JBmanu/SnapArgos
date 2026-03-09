@@ -10,12 +10,14 @@ const $ = id => document.getElementById(id);
 // ═══ STATE ═══════════════════════════════════════════════════════════════════
 let images = [];   // { file, url, img (HTMLImageElement), w, h }
 let busy = false;
+let actionOrder = ['trim', 'resize'];  // user-reorderable
 
 // ═══ INIT ════════════════════════════════════════════════════════════════════
 export function initImageEditor() {
     console.log('[image-editor] initImageEditor()');
     images = [];
     busy = false;
+    actionOrder = ['trim', 'resize'];
     wireEvents();
     updateUI();
 }
@@ -167,6 +169,94 @@ function syncAspect(changed) {
     }
 }
 
+// ═══ DRAGGABLE ACTION ORDER ══════════════════════════════════════════════════
+const ACTION_META = {
+    trim: {
+        label: 'Trim',
+        icon: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 2v4M6 18v4M2 6h4m12 0h4M18 2v4m0 12v4M2 18h4m12 0h4M8 8h8v8H8z"/></svg>`,
+    },
+    resize: {
+        label: 'Resize',
+        icon: `<svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"/></svg>`,
+    },
+};
+
+function renderOrderList() {
+    const list = $('ie-order-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    const trimOn = $('ie-trim-enabled')?.checked;
+    const resizeOn = $('ie-resize-enabled')?.checked;
+    const active = actionOrder.filter(a => (a === 'trim' && trimOn) || (a === 'resize' && resizeOn));
+
+    if (!active.length) {
+        list.innerHTML = '<div class="imgedit-order-empty">Enable actions in Step 2</div>';
+        return;
+    }
+
+    let dragSrcIdx = null;
+
+    active.forEach((key, idx) => {
+        const meta = ACTION_META[key];
+        const item = document.createElement('div');
+        item.className = 'imgedit-order-item';
+        item.draggable = true;
+        item.dataset.action = key;
+
+        item.innerHTML = `
+            <div class="imgedit-order-grip"><span></span><span></span><span></span></div>
+            <div class="imgedit-order-icon">${meta.icon}</div>
+            <div class="imgedit-order-name">${meta.label}</div>
+            <div class="imgedit-order-num">${idx + 1}</div>
+        `;
+
+        // ── Drag events ──
+        item.addEventListener('dragstart', e => {
+            dragSrcIdx = idx;
+            item.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', key);
+        });
+
+        item.addEventListener('dragend', () => {
+            item.classList.remove('dragging');
+            list.querySelectorAll('.imgedit-order-item').forEach(el => el.classList.remove('drag-over'));
+            dragSrcIdx = null;
+        });
+
+        item.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            item.classList.add('drag-over');
+        });
+
+        item.addEventListener('dragleave', () => {
+            item.classList.remove('drag-over');
+        });
+
+        item.addEventListener('drop', e => {
+            e.preventDefault();
+            item.classList.remove('drag-over');
+            const dropIdx = idx;
+            if (dragSrcIdx === null || dragSrcIdx === dropIdx) return;
+
+            // Reorder in actionOrder
+            const srcKey = active[dragSrcIdx];
+            const dstKey = active[dropIdx];
+            const srcGlobal = actionOrder.indexOf(srcKey);
+            const dstGlobal = actionOrder.indexOf(dstKey);
+            actionOrder.splice(srcGlobal, 1);
+            actionOrder.splice(dstGlobal, 0, srcKey);
+
+            renderOrderList();
+            updateSummary();
+        });
+
+        list.appendChild(item);
+    });
+}
+
 // ═══ UI UPDATE ═══════════════════════════════════════════════════════════════
 function updateUI() {
     const badge = $('ie-img-count');
@@ -175,6 +265,11 @@ function updateUI() {
     const clearBtn = $('ie-clear-imgs');
     if (clearBtn) clearBtn.style.display = images.length ? 'inline-flex' : 'none';
 
+    renderOrderList();
+    updateSummary();
+}
+
+function updateSummary() {
     const trimOn = $('ie-trim-enabled')?.checked;
     const resizeOn = $('ie-resize-enabled')?.checked;
     const hasAction = trimOn || resizeOn;
@@ -183,25 +278,26 @@ function updateUI() {
     const btn = $('ie-btn-run');
     if (btn) btn.disabled = !canRun;
 
-    // Run summary
     const summary = $('ie-run-summary');
     if (summary) {
         if (!images.length || !hasAction) {
             summary.innerHTML = '<div class="imgedit-run-dim">Select images and at least one action</div>';
         } else {
             let html = `<div style="margin-bottom:0.3rem;color:var(--snap-text)">${images.length} image${images.length > 1 ? 's' : ''}</div>`;
-            if (trimOn) {
-                const auto = $('ie-trim-auto')?.checked;
-                html += makeRunItem('crop', auto ? 'Trim (auto-transparent)' : 'Trim (manual)');
-            }
-            if (resizeOn) {
-                const mode = document.querySelector('input[name="ie-resize-mode"]:checked')?.value;
-                if (mode === 'scale') {
-                    html += makeRunItem('resize', `Resize to ${$('ie-resize-scale')?.value || 50}%`);
-                } else {
-                    html += makeRunItem('resize', `Resize to ${$('ie-resize-w')?.value || '?'}×${$('ie-resize-h')?.value || '?'}px`);
+            const active = actionOrder.filter(a => (a === 'trim' && trimOn) || (a === 'resize' && resizeOn));
+            active.forEach((key, i) => {
+                if (key === 'trim') {
+                    const auto = $('ie-trim-auto')?.checked;
+                    html += makeRunItem('crop', `${i + 1}. Trim (${auto ? 'auto-transparent' : 'manual'})`);
+                } else if (key === 'resize') {
+                    const mode = document.querySelector('input[name="ie-resize-mode"]:checked')?.value;
+                    if (mode === 'scale') {
+                        html += makeRunItem('resize', `${i + 1}. Resize to ${$('ie-resize-scale')?.value || 50}%`);
+                    } else {
+                        html += makeRunItem('resize', `${i + 1}. Resize to ${$('ie-resize-w')?.value || '?'}×${$('ie-resize-h')?.value || '?'}px`);
+                    }
                 }
-            }
+            });
             summary.innerHTML = html;
         }
     }
@@ -234,6 +330,10 @@ async function onRun() {
     const trimOn = $('ie-trim-enabled')?.checked;
     const resizeOn = $('ie-resize-enabled')?.checked;
 
+    // Build ordered pipeline from user-defined order
+    const pipeline = actionOrder.filter(a => (a === 'trim' && trimOn) || (a === 'resize' && resizeOn));
+    log(`Pipeline: ${pipeline.join(' → ')}`, 'dim');
+
     // Gather settings
     const trimAuto = $('ie-trim-auto')?.checked;
     const trimTop = parseInt($('ie-trim-top')?.value) || 0;
@@ -259,41 +359,34 @@ async function onRun() {
         try {
             let canvas = imgToCanvas(entry.img);
 
-            // ── Step 1: Trim ──
-            if (trimOn) {
-                if (trimAuto) {
-                    canvas = autoTrim(canvas);
-                    log(`✓ Auto-trimmed "${entry.file.name}" → ${canvas.width}×${canvas.height}`, 'ok');
-                } else {
-                    canvas = manualTrim(canvas, trimTop, trimRight, trimBottom, trimLeft);
-                    log(`✓ Manual-trimmed "${entry.file.name}" → ${canvas.width}×${canvas.height}`, 'ok');
-                }
-            }
-
-            // ── Step 2: Resize ──
-            if (resizeOn) {
-                if (resizeMode === 'scale') {
-                    const nw = Math.max(1, Math.round(canvas.width * resizeScale));
-                    const nh = Math.max(1, Math.round(canvas.height * resizeScale));
-                    canvas = resizeCanvas(canvas, nw, nh);
-                } else {
-                    // Fixed size
-                    let fw = resizeW, fh = resizeH;
-                    if (resizeLock) {
-                        const ratio = canvas.width / canvas.height;
-                        // fit within box keeping ratio
-                        if (fw / fh > ratio) {
-                            fw = Math.round(fh * ratio);
-                        } else {
-                            fh = Math.round(fw / ratio);
-                        }
+            // Apply pipeline in user-defined order
+            for (const action of pipeline) {
+                if (action === 'trim') {
+                    if (trimAuto) {
+                        canvas = autoTrim(canvas);
+                        log(`✓ Auto-trimmed "${entry.file.name}" → ${canvas.width}×${canvas.height}`, 'ok');
+                    } else {
+                        canvas = manualTrim(canvas, trimTop, trimRight, trimBottom, trimLeft);
+                        log(`✓ Manual-trimmed "${entry.file.name}" → ${canvas.width}×${canvas.height}`, 'ok');
                     }
-                    canvas = resizeCanvas(canvas, Math.max(1, fw), Math.max(1, fh));
+                } else if (action === 'resize') {
+                    if (resizeMode === 'scale') {
+                        const nw = Math.max(1, Math.round(canvas.width * resizeScale));
+                        const nh = Math.max(1, Math.round(canvas.height * resizeScale));
+                        canvas = resizeCanvas(canvas, nw, nh);
+                    } else {
+                        let fw = resizeW, fh = resizeH;
+                        if (resizeLock) {
+                            const ratio = canvas.width / canvas.height;
+                            if (fw / fh > ratio) { fw = Math.round(fh * ratio); }
+                            else { fh = Math.round(fw / ratio); }
+                        }
+                        canvas = resizeCanvas(canvas, Math.max(1, fw), Math.max(1, fh));
+                    }
+                    log(`✓ Resized "${entry.file.name}" → ${canvas.width}×${canvas.height}`, 'ok');
                 }
-                log(`✓ Resized "${entry.file.name}" → ${canvas.width}×${canvas.height}`, 'ok');
             }
 
-            // Convert back to blob
             const blob = await canvasToBlob(canvas, entry.file.type);
             results.push({ blob, name: entry.file.name });
 
@@ -311,7 +404,6 @@ async function onRun() {
         downloadBlob(results[0].blob, results[0].name);
         log(`⬇ Downloaded "${results[0].name}"`, 'ok');
     } else if (results.length > 1) {
-        // Download each individually (no zip needed for simplicity)
         for (const r of results) {
             downloadBlob(r.blob, r.name);
         }
@@ -339,7 +431,6 @@ function imgToCanvas(img) {
 
 /**
  * Auto-trim: remove transparent borders.
- * Scans for the bounding box of non-transparent pixels.
  */
 function autoTrim(canvas) {
     const ctx = canvas.getContext('2d');
@@ -360,7 +451,6 @@ function autoTrim(canvas) {
         }
     }
 
-    // No non-transparent pixels — return 1×1
     if (top > bottom || left > right) {
         const c = document.createElement('canvas');
         c.width = 1; c.height = 1;
@@ -401,7 +491,6 @@ function resizeCanvas(canvas, w, h) {
 }
 
 function canvasToBlob(canvas, mimeType) {
-    // Normalize mime type
     const mime = (mimeType === 'image/svg+xml') ? 'image/png' : (mimeType || 'image/png');
     return new Promise(resolve => {
         canvas.toBlob(blob => resolve(blob), mime);
