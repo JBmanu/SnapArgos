@@ -394,15 +394,19 @@ function buildResizeBody(action) {
     const o = action.opts;
     const uid = `ar${action.id}`;
     return `
-        <div class="imgedit-resize-modes">
-            <label class="imgedit-radio">
-                <input type="radio" name="ie-rmode-${uid}" value="scale" ${o.mode === 'scale' ? 'checked' : ''}/>
-                <span>Scale by %</span>
-            </label>
-            <label class="imgedit-radio">
-                <input type="radio" name="ie-rmode-${uid}" value="fixed" ${o.mode === 'fixed' ? 'checked' : ''}/>
-                <span>Fixed size (px)</span>
-            </label>
+        <div class="imgedit-mode-tabs">
+            <button class="imgedit-mode-tab ${o.mode === 'scale' ? 'active' : ''}" data-mode="scale" data-uid="${uid}" type="button">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"/>
+                </svg>
+                Scale %
+            </button>
+            <button class="imgedit-mode-tab ${o.mode === 'fixed' ? 'active' : ''}" data-mode="fixed" data-uid="${uid}" type="button">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"/>
+                </svg>
+                Fixed px
+            </button>
         </div>
         <div class="imgedit-option-row ie-rscale" data-uid="${uid}" style="display:${o.mode === 'scale' ? 'flex' : 'none'}">
             <div class="imgedit-field-group">
@@ -443,11 +447,14 @@ function wireResizeCard(body, action) {
     const uid = `ar${action.id}`;
     const scaleRow = body.querySelector(`.ie-rscale[data-uid="${uid}"]`);
     const fixedRow = body.querySelector(`.ie-rfixed[data-uid="${uid}"]`);
+    const tabs = body.querySelectorAll(`.imgedit-mode-tab[data-uid="${uid}"]`);
 
-    body.querySelectorAll(`input[name="ie-rmode-${uid}"]`).forEach(r => {
-        r.addEventListener('change', () => {
-            const isScale = r.value === 'scale' && r.checked;
-            action.opts.mode = r.value;
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const mode = tab.dataset.mode;
+            action.opts.mode = mode;
+            tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+            const isScale = mode === 'scale';
             if (scaleRow) scaleRow.style.display = isScale ? 'flex' : 'none';
             if (fixedRow) fixedRow.style.display = isScale ? 'none' : 'flex';
             updateUI();
