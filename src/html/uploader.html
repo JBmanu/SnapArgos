@@ -11,14 +11,14 @@
       <div class="card-head-left">
         <div class="step-num">1</div>
         <span class="card-title">Projects &amp; Sprites</span>
+        <label class="imgedit-keep-toggle" title="Keep selection after upload">
+          <input type="checkbox" id="up-keep-selection" checked/>
+          <svg class="imgedit-keep-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+          </svg>
+          <span class="imgedit-keep-label">Keep</span>
+        </label>
       </div>
-      <label class="imgedit-keep-toggle" title="Keep selection after upload">
-        <input type="checkbox" id="up-keep-selection" checked/>
-        <svg class="imgedit-keep-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
-        </svg>
-        <span class="imgedit-keep-label">Keep</span>
-      </label>
       <span id="sel-summary" class="sel-summary"></span>
     </div>
     <div class="card-body">
@@ -86,14 +86,14 @@
         <div class="card-head-left">
           <div class="step-num">2</div>
           <span class="card-title">Files</span>
+          <label class="imgedit-keep-toggle" title="Keep files after upload">
+            <input type="checkbox" id="up-keep-files" checked/>
+            <svg class="imgedit-keep-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+            </svg>
+            <span class="imgedit-keep-label">Keep</span>
+          </label>
         </div>
-        <label class="imgedit-keep-toggle" title="Keep files after upload">
-          <input type="checkbox" id="up-keep-files" checked/>
-          <svg class="imgedit-keep-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
-          </svg>
-          <span class="imgedit-keep-label">Keep</span>
-        </label>
         <span id="file-count-badge" class="col-head-badge file-count-badge"></span>
         <button class="btn btn-mini btn-clear-files" id="btn-clear-files">Clear all</button>
       </div>
