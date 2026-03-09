@@ -13,7 +13,7 @@
 }
 
 .imgedit-bottom {
-  @apply grid gap-4 items-start;
+  @apply grid gap-4 items-stretch;
   grid-template-columns: 2fr 1fr;
 }
 
@@ -120,6 +120,9 @@
 
 /* ── Actions card ───────────────────────────────────────────────────────── */
 .imgedit-actions-card {
+  @apply flex-1 flex flex-col;
+}
+.imgedit-actions-card > .card-body {
   @apply flex-1;
 }
 .imgedit-actions-card > .card-head,
@@ -312,8 +315,17 @@
 
 /* ── Run column ─────────────────────────────────────────────────────────── */
 .imgedit-run-col {
-  @apply sticky;
+  @apply sticky flex flex-col;
   top: 80px;
+}
+.imgedit-run-col > .card {
+  @apply flex-1 flex flex-col;
+}
+.imgedit-run-col > .card > .card-body {
+  @apply flex-1 flex flex-col;
+}
+.imgedit-run-col .imgedit-run-btn {
+  @apply mt-auto;
 }
 
 .imgedit-run-summary {
