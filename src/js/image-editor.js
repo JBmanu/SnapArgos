@@ -353,6 +353,22 @@ function wireResizeCard(body, action) {
 }
 
 // ═══ DRAGGABLE ORDER LIST (Run panel) ════════════════════════════════════════
+
+function getActionDetail(action) {
+    if (action.type === 'trim') {
+        const o = action.opts;
+        if (o.auto) return 'Auto — remove transparent borders';
+        return `Manual — T:${o.top} R:${o.right} B:${o.bottom} L:${o.left}px`;
+    }
+    if (action.type === 'resize') {
+        const o = action.opts;
+        if (o.mode === 'scale') return `Scale to ${o.scale}%`;
+        const lock = o.lock ? ' (keep ratio)' : ' (stretch)';
+        return `Fixed ${o.w}×${o.h}px${lock}`;
+    }
+    return '';
+}
+
 function renderOrderList() {
     const list = $('ie-order-list');
     if (!list) return;
@@ -374,7 +390,10 @@ function renderOrderList() {
         item.innerHTML = `
             <div class="imgedit-order-grip"><span></span><span></span><span></span></div>
             <div class="imgedit-order-icon">${ICONS[action.type] || ''}</div>
-            <div class="imgedit-order-name">${action.type === 'trim' ? 'Trim' : 'Resize'}</div>
+            <div class="imgedit-order-text">
+                <div class="imgedit-order-name">${action.type === 'trim' ? 'Trim' : 'Resize'}</div>
+                <div class="imgedit-order-detail">${getActionDetail(action)}</div>
+            </div>
             <div class="imgedit-order-num">${idx + 1}</div>
         `;
 

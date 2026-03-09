@@ -379,9 +379,20 @@
   @apply flex-shrink-0 text-snap-accent;
 }
 
+.imgedit-order-text {
+  @apply flex flex-col min-w-0;
+}
+
 .imgedit-order-name {
   @apply font-medium text-snap-text;
   font-size: 0.78rem;
+}
+
+.imgedit-order-detail {
+  @apply font-display text-snap-muted truncate;
+  font-size: 0.65rem;
+  line-height: 1.3;
+  margin-top: 1px;
 }
 
 .imgedit-order-num {
