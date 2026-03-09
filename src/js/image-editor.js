@@ -215,9 +215,10 @@ function buildTrimBody(action) {
     const o = action.opts;
     const uid = `at${action.id}`;
     return `
-        <label class="imgedit-option">
+        <label class="imgedit-toggle-option">
             <input type="checkbox" class="ie-trim-auto" data-uid="${uid}" ${o.auto ? 'checked' : ''}/>
-            <span>Auto-trim transparent pixels</span>
+            <span class="imgedit-toggle-slider"></span>
+            <span class="imgedit-toggle-text">Auto-trim transparent pixels</span>
         </label>
         <div class="imgedit-option-row ie-trim-manual" data-uid="${uid}" style="display:${o.auto ? 'none' : 'flex'}">
             <div class="imgedit-field-group">

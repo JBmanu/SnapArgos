@@ -7,7 +7,7 @@
 .imgedit-page {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  /*gap: 1rem;*/
 }
 
 .imgedit-layout {
@@ -155,6 +155,9 @@
 .imgedit-actions-card {
   flex: 1;
 }
+.imgedit-actions-card > .card-head {
+  gap: 0.5rem;
+}
 
 /* ── Dynamic action list ────────────────────────────────────────────────── */
 .imgedit-action-list {
@@ -253,6 +256,52 @@
 }
 .imgedit-add-btn svg {
   color: var(--snap-accent, #5fd4ff);
+}
+
+/* ── Toggle switch (auto-trim) ──────────────────────────────────────────── */
+.imgedit-toggle-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  margin-bottom: 0.4rem;
+  user-select: none;
+}
+.imgedit-toggle-option input[type="checkbox"] {
+  display: none;
+}
+.imgedit-toggle-slider {
+  position: relative;
+  width: 34px;
+  height: 18px;
+  border-radius: 9px;
+  background: var(--snap-muted2, #3d4568);
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.imgedit-toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--snap-text, #edf0f7);
+  transition: transform 0.2s;
+}
+.imgedit-toggle-option input:checked + .imgedit-toggle-slider {
+  background: var(--snap-accent, #5fd4ff);
+}
+.imgedit-toggle-option input:checked + .imgedit-toggle-slider::after {
+  transform: translateX(16px);
+}
+.imgedit-toggle-text {
+  font-size: 0.8rem;
+  color: var(--snap-muted, #7585ad);
+}
+.imgedit-toggle-option input:checked ~ .imgedit-toggle-text {
+  color: var(--snap-text, #edf0f7);
 }
 
 /* ── Options ────────────────────────────────────────────────────────────── */
