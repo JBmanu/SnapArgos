@@ -60,17 +60,6 @@
         </div>
         <div class="card-body">
 
-          <!-- Dynamic action instances rendered by JS -->
-          <div class="imgedit-action-list" id="ie-action-list">
-            <div class="imgedit-action-empty" id="ie-action-empty">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="28" height="28">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                  d="M12 4v16m8-8H4"/>
-              </svg>
-              <span>Add actions with the buttons below</span>
-            </div>
-          </div>
-
           <!-- Add action buttons -->
           <div class="imgedit-add-bar">
             <button class="btn btn-small imgedit-add-btn" id="ie-add-trim">
@@ -85,6 +74,17 @@
               </svg>
               Resize
             </button>
+          </div>
+
+          <!-- Dynamic action instances rendered by JS -->
+          <div class="imgedit-action-list" id="ie-action-list">
+            <div class="imgedit-action-empty" id="ie-action-empty">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="28" height="28">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M12 4v16m8-8H4"/>
+              </svg>
+              <span>No actions added yet</span>
+            </div>
           </div>
 
         </div>
@@ -123,9 +123,9 @@
               </div>
               <div class="prog-track"><div class="prog-fill" id="ie-prog-bar"></div></div>
             </div>
-            <div class="imgedit-log" id="ie-log">
-              <div class="log-dim">// ready</div>
-            </div>
+<!--            <div class="imgedit-log" id="ie-log">-->
+<!--              <div class="log-dim">// ready</div>-->
+<!--            </div>-->
           </div>
         </div>
       </div>

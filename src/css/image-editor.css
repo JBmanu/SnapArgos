@@ -1,182 +1,121 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   image-editor.css — Image Editor page styles
-   Uses the same snap- color tokens and component patterns as uploader/overview.
+   image-editor.css — Image Editor page styles (Tailwind @apply)
+   Uses snap-* color tokens from tailwind.config.js
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Layout ─────────────────────────────────────────────────────────────── */
 .imgedit-page {
-  display: flex;
-  flex-direction: column;
-  /*gap: 1rem;*/
+  @apply flex flex-col;
 }
 
 .imgedit-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  @apply flex flex-col gap-4;
 }
 
 .imgedit-bottom {
-  display: grid;
+  @apply grid gap-4 items-start;
   grid-template-columns: 2fr 1fr;
-  gap: 1rem;
-  align-items: start;
 }
 
 @media (max-width: 860px) {
   .imgedit-bottom {
-    grid-template-columns: 1fr;
+    @apply grid-cols-1;
   }
 }
 
 /* ── Images section inner ───────────────────────────────────────────────── */
 .imgedit-images-inner {
-  display: grid;
+  @apply grid gap-4;
   grid-template-columns: 260px 1fr;
-  gap: 1rem;
 }
 
 @media (max-width: 640px) {
   .imgedit-images-inner {
-    grid-template-columns: 1fr;
+    @apply grid-cols-1;
   }
 }
 
 .imgedit-drop-col {
-  display: flex;
-  flex-direction: column;
+  @apply flex flex-col;
 }
 
 /* Square drop zone */
 .imgedit-drop-col .drop-zone {
+  @apply flex flex-col items-center justify-center w-full;
   aspect-ratio: 1 / 1;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
 }
 
 /* ── Thumbnail list ─────────────────────────────────────────────────────── */
 .imgedit-thumb-col {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+  @apply flex flex-col min-h-0;
 }
 
 .imgedit-thumb-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  @apply flex flex-wrap gap-2 overflow-y-auto;
   align-content: flex-start;
-  height: 260px;       /* matches drop-zone square height */
-  overflow-y: auto;
+  height: 260px;
   padding: 2px;
 }
 
 .imgedit-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
+  @apply flex flex-col items-center justify-center gap-2 w-full text-snap-muted text-center;
   min-height: 140px;
-  color: var(--snap-muted, #7585ad);
   font-size: 0.8rem;
-  text-align: center;
 }
 .imgedit-empty-state svg {
-  opacity: 0.4;
+  @apply opacity-40;
 }
 
 /* ── Thumbnail chip ─────────────────────────────────────────────────────── */
 .imgedit-thumb {
-  position: relative;
+  @apply relative flex items-center justify-center flex-shrink-0 overflow-hidden rounded-lg border border-snap-border bg-snap-surface transition-colors;
   width: 80px;
   height: 80px;
-  border-radius: 8px;
-  border: 1px solid var(--snap-border, #2e3558);
-  background: var(--snap-surface, #111425);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: border-color 0.15s;
 }
 .imgedit-thumb:hover {
-  border-color: var(--snap-accent, #5fd4ff);
+  @apply border-snap-accent;
 }
 .imgedit-thumb img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  image-rendering: auto;
+  @apply max-w-full max-h-full object-contain;
 }
 .imgedit-thumb-del {
-  position: absolute;
+  @apply absolute rounded-full border-0 text-white text-center cursor-pointer opacity-0 transition-opacity p-0;
   top: 2px;
   right: 2px;
   width: 18px;
   height: 18px;
-  border-radius: 50%;
-  border: none;
   background: rgba(0,0,0,0.65);
-  color: #fff;
   font-size: 11px;
   line-height: 18px;
-  text-align: center;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s;
-  padding: 0;
 }
 .imgedit-thumb:hover .imgedit-thumb-del {
-  opacity: 1;
+  @apply opacity-100;
 }
 .imgedit-thumb-info {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  @apply absolute bottom-0 left-0 right-0 text-snap-text text-center whitespace-nowrap overflow-hidden text-ellipsis font-display;
   padding: 2px 4px;
   background: rgba(0,0,0,0.65);
-  color: var(--snap-text, #edf0f7);
   font-size: 0.6rem;
-  font-family: 'DM Mono', monospace;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* ── Actions card ───────────────────────────────────────────────────────── */
 .imgedit-actions-card {
-  flex: 1;
+  @apply flex-1;
 }
 .imgedit-actions-card > .card-head {
-  gap: 0.5rem;
+  @apply gap-2;
 }
 
 /* ── Dynamic action list ────────────────────────────────────────────────── */
 .imgedit-action-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
+  @apply flex flex-col gap-2;
   min-height: 40px;
 }
 
 .imgedit-action-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
+  @apply flex flex-col items-center justify-center gap-1 text-snap-muted2 text-center;
   padding: 1.2rem 0;
-  color: var(--snap-muted2, #3d4568);
   font-size: 0.8rem;
-  text-align: center;
 }
 .imgedit-action-empty svg {
   opacity: 0.35;
@@ -184,55 +123,38 @@
 
 /* ── Single action card ─────────────────────────────────────────────────── */
 .imgedit-action-card {
-  border: 1px solid var(--snap-border, #2e3558);
+  @apply border border-snap-border bg-snap-surface overflow-hidden transition-colors;
   border-radius: 10px;
-  background: var(--snap-surface, #111425);
-  overflow: hidden;
-  transition: border-color 0.15s;
 }
 .imgedit-action-card:hover {
-  border-color: color-mix(in srgb, var(--snap-border, #2e3558) 50%, var(--snap-accent, #5fd4ff) 50%);
+  border-color: color-mix(in srgb, theme('colors.snap.border') 50%, theme('colors.snap.accent') 50%);
 }
 
 .imgedit-action-card-head {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  @apply flex items-center gap-2 bg-snap-surface2;
   padding: 0.5rem 0.7rem;
-  background: var(--snap-surface2, #181c32);
 }
 .imgedit-action-card-head svg {
-  flex-shrink: 0;
-  color: var(--snap-accent, #5fd4ff);
+  @apply flex-shrink-0 text-snap-accent;
 }
 .imgedit-action-card-title {
-  font-weight: 600;
+  @apply font-semibold text-snap-text;
   font-size: 0.82rem;
-  color: var(--snap-text, #edf0f7);
 }
 .imgedit-action-card-idx {
+  @apply font-display text-snap-muted2;
   font-size: 0.65rem;
-  font-family: 'DM Mono', monospace;
-  color: var(--snap-muted2, #3d4568);
   margin-left: 0.2rem;
 }
 .imgedit-action-card-del {
-  margin-left: auto;
+  @apply ml-auto rounded border border-transparent bg-transparent text-snap-muted text-center cursor-pointer p-0 transition-all;
   width: 22px;
   height: 22px;
-  border-radius: 5px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--snap-muted, #7585ad);
   font-size: 13px;
   line-height: 20px;
-  text-align: center;
-  cursor: pointer;
-  padding: 0;
-  transition: all 0.15s;
 }
 .imgedit-action-card-del:hover {
-  background: var(--snap-tint-red, #280e14);
+  @apply bg-snap-tint-red;
   border-color: #f87171;
   color: #f87171;
 }
@@ -243,200 +165,146 @@
 
 /* ── Add action bar ─────────────────────────────────────────────────────── */
 .imgedit-add-bar {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--snap-border, #2e3558);
+  @apply flex gap-2 border-b border-snap-border;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
 }
 .imgedit-add-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
+  @apply inline-flex items-center gap-1;
 }
 .imgedit-add-btn svg {
-  color: var(--snap-accent, #5fd4ff);
+  @apply text-snap-accent;
 }
 
 /* ── Toggle switch (auto-trim) ──────────────────────────────────────────── */
 .imgedit-toggle-option {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
+  @apply flex items-center gap-2 cursor-pointer select-none;
   margin-bottom: 0.4rem;
-  user-select: none;
 }
 .imgedit-toggle-option input[type="checkbox"] {
-  display: none;
+  @apply hidden;
 }
 .imgedit-toggle-slider {
-  position: relative;
+  @apply relative flex-shrink-0 rounded-full bg-snap-muted2 transition-colors;
   width: 34px;
   height: 18px;
-  border-radius: 9px;
-  background: var(--snap-muted2, #3d4568);
-  flex-shrink: 0;
-  transition: background 0.2s;
 }
 .imgedit-toggle-slider::after {
+  @apply absolute rounded-full bg-snap-text;
   content: '';
-  position: absolute;
   top: 2px;
   left: 2px;
   width: 14px;
   height: 14px;
-  border-radius: 50%;
-  background: var(--snap-text, #edf0f7);
   transition: transform 0.2s;
 }
 .imgedit-toggle-option input:checked + .imgedit-toggle-slider {
-  background: var(--snap-accent, #5fd4ff);
+  @apply bg-snap-accent;
 }
 .imgedit-toggle-option input:checked + .imgedit-toggle-slider::after {
   transform: translateX(16px);
 }
 .imgedit-toggle-text {
+  @apply text-snap-muted;
   font-size: 0.8rem;
-  color: var(--snap-muted, #7585ad);
 }
 .imgedit-toggle-option input:checked ~ .imgedit-toggle-text {
-  color: var(--snap-text, #edf0f7);
+  @apply text-snap-text;
 }
 
 /* ── Options ────────────────────────────────────────────────────────────── */
 .imgedit-option {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  @apply flex items-center gap-1 text-snap-muted cursor-pointer;
   font-size: 0.8rem;
-  color: var(--snap-muted, #7585ad);
-  cursor: pointer;
   margin-bottom: 0.4rem;
 }
 .imgedit-option input[type="checkbox"] {
+  @apply rounded border border-snap-border bg-snap-surface cursor-pointer;
   width: 14px;
   height: 14px;
-  border-radius: 3px;
-  border: 1px solid var(--snap-border, #2e3558);
-  background: var(--snap-surface, #111425);
-  accent-color: var(--snap-accent, #5fd4ff);
-  cursor: pointer;
+  accent-color: theme('colors.snap.accent');
 }
 
 .imgedit-option-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
+  @apply flex flex-wrap gap-2;
   margin-top: 0.4rem;
 }
 
 .imgedit-field-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+  @apply flex flex-col gap-0.5;
 }
 .imgedit-field-label {
+  @apply font-display text-snap-muted uppercase tracking-wide;
   font-size: 0.7rem;
-  color: var(--snap-muted, #7585ad);
-  font-family: 'DM Mono', monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
 }
 .imgedit-input {
+  @apply font-display bg-snap-surface border border-snap-border rounded-md text-snap-text outline-none transition-colors;
   width: 80px;
   padding: 0.3rem 0.45rem;
   font-size: 0.8rem;
-  font-family: 'DM Mono', monospace;
-  background: var(--snap-surface, #111425);
-  border: 1px solid var(--snap-border, #2e3558);
-  border-radius: 6px;
-  color: var(--snap-text, #edf0f7);
-  outline: none;
-  transition: border-color 0.15s;
 }
 .imgedit-input:focus {
-  border-color: var(--snap-accent, #5fd4ff);
+  @apply border-snap-accent;
 }
 
 .imgedit-input-suffix {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
+  @apply relative inline-flex items-center;
 }
 .imgedit-input-suffix .imgedit-input {
   padding-right: 1.8rem;
 }
 .imgedit-suffix {
-  position: absolute;
+  @apply absolute font-display text-snap-muted2 pointer-events-none;
   right: 0.45rem;
   font-size: 0.7rem;
-  color: var(--snap-muted2, #3d4568);
-  pointer-events: none;
-  font-family: 'DM Mono', monospace;
 }
 
 /* ── Resize radio ───────────────────────────────────────────────────────── */
 .imgedit-resize-modes {
-  display: flex;
-  gap: 1rem;
+  @apply flex gap-4;
   margin-bottom: 0.5rem;
 }
 .imgedit-radio {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
+  @apply flex items-center gap-1 text-snap-muted cursor-pointer;
   font-size: 0.8rem;
-  color: var(--snap-muted, #7585ad);
-  cursor: pointer;
 }
 .imgedit-radio input[type="radio"] {
-  accent-color: var(--snap-accent, #5fd4ff);
-  cursor: pointer;
+  @apply cursor-pointer;
+  accent-color: theme('colors.snap.accent');
 }
 
 /* ── Run column ─────────────────────────────────────────────────────────── */
 .imgedit-run-col {
-  position: sticky;
+  @apply sticky;
   top: 80px;
 }
 
 .imgedit-run-summary {
+  @apply text-snap-muted leading-relaxed;
   margin-bottom: 0.75rem;
   font-size: 0.78rem;
-  color: var(--snap-muted, #7585ad);
-  line-height: 1.5;
 }
 .imgedit-run-dim {
-  color: var(--snap-muted2, #3d4568);
-  font-style: italic;
+  @apply text-snap-muted2 italic;
   font-size: 0.78rem;
 }
 .imgedit-run-item {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
+  @apply flex items-center gap-1;
   padding: 0.15rem 0;
 }
 .imgedit-run-item svg {
-  flex-shrink: 0;
-  color: var(--snap-accent, #5fd4ff);
+  @apply flex-shrink-0 text-snap-accent;
 }
 .imgedit-run-item span {
-  color: var(--snap-text, #edf0f7);
+  @apply text-snap-text;
 }
 
 .imgedit-run-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  font-weight: 600;
+  @apply w-full flex items-center justify-center gap-2 font-semibold;
 }
 .imgedit-run-btn:disabled {
+  @apply cursor-not-allowed;
   opacity: 0.45;
-  cursor: not-allowed;
 }
 
 /* ── Progress & Log ─────────────────────────────────────────────────────── */
@@ -445,10 +313,9 @@
 }
 
 .imgedit-log {
+  @apply overflow-y-auto font-display;
   margin-top: 0.75rem;
   max-height: 180px;
-  overflow-y: auto;
-  font-family: 'DM Mono', monospace;
   font-size: 0.72rem;
   line-height: 1.6;
 }
@@ -460,96 +327,71 @@
 }
 .imgedit-thumb-list::-webkit-scrollbar-track,
 .imgedit-log::-webkit-scrollbar-track {
-  background: transparent;
+  @apply bg-transparent;
 }
 .imgedit-thumb-list::-webkit-scrollbar-thumb,
 .imgedit-log::-webkit-scrollbar-thumb {
-  background: var(--snap-muted2, #3d4568);
-  border-radius: 4px;
+  @apply bg-snap-muted2 rounded;
 }
 
 /* ── Draggable action order (Run panel) ─────────────────────────────────── */
 .imgedit-order-label {
+  @apply font-display text-snap-muted uppercase tracking-wide;
   font-size: 0.7rem;
-  font-family: 'DM Mono', monospace;
-  color: var(--snap-muted, #7585ad);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
   margin-bottom: 0.4rem;
 }
 
 .imgedit-order-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+  @apply flex flex-col gap-1;
   margin-bottom: 0.75rem;
 }
 
 .imgedit-order-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  @apply flex items-center gap-2 bg-snap-surface2 border border-snap-border rounded-lg cursor-grab select-none transition-all;
   padding: 0.45rem 0.6rem;
-  background: var(--snap-surface2, #181c32);
-  border: 1px solid var(--snap-border, #2e3558);
-  border-radius: 8px;
-  cursor: grab;
-  user-select: none;
-  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
 }
 .imgedit-order-item:active {
   cursor: grabbing;
 }
 .imgedit-order-item:hover {
-  border-color: var(--snap-accent, #5fd4ff);
+  @apply border-snap-accent;
 }
 .imgedit-order-item.dragging {
-  opacity: 0.4;
+  @apply opacity-40;
 }
 .imgedit-order-item.drag-over {
-  border-color: var(--snap-accent, #5fd4ff);
-  background: var(--snap-tint-blue, #0a1528);
+  @apply border-snap-accent bg-snap-tint-blue;
   box-shadow: 0 0 0 2px rgba(95, 212, 255, 0.15);
 }
 
 .imgedit-order-grip {
-  display: flex;
-  flex-direction: column;
+  @apply flex flex-col flex-shrink-0 text-snap-muted2;
   gap: 2px;
-  flex-shrink: 0;
-  color: var(--snap-muted2, #3d4568);
 }
 .imgedit-order-grip span {
-  display: block;
+  @apply block rounded-sm;
   width: 12px;
   height: 2px;
   background: currentColor;
-  border-radius: 1px;
 }
 
 .imgedit-order-icon {
-  flex-shrink: 0;
-  color: var(--snap-accent, #5fd4ff);
+  @apply flex-shrink-0 text-snap-accent;
 }
 
 .imgedit-order-name {
+  @apply font-medium text-snap-text;
   font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--snap-text, #edf0f7);
 }
 
 .imgedit-order-num {
-  margin-left: auto;
+  @apply ml-auto font-display text-snap-muted2 text-center;
   font-size: 0.65rem;
-  font-family: 'DM Mono', monospace;
-  color: var(--snap-muted2, #3d4568);
   min-width: 1.2rem;
-  text-align: center;
 }
 
 .imgedit-order-empty {
+  @apply text-snap-muted2 italic;
   font-size: 0.75rem;
-  color: var(--snap-muted2, #3d4568);
-  font-style: italic;
   padding: 0.3rem 0;
 }
