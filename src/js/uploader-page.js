@@ -335,6 +335,10 @@ async function onUploadClick() {
         checkUploadReady();
         log('Files cleared (keep off)', 'dim');
     }
+    if (!$('up-keep-log')?.checked) {
+        const lp = $('log-panel');
+        if (lp) lp.innerHTML = '<div class="log-dim">// cleared after upload</div>';
+    }
 }
 
 async function onDownloadClick() {
