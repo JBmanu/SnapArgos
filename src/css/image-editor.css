@@ -235,6 +235,10 @@
 .imgedit-toggle-option input:checked ~ .imgedit-toggle-text {
   @apply text-snap-text;
 }
+.imgedit-toggle-hint {
+  @apply text-snap-muted font-display;
+  font-size: 0.72rem;
+}
 
 /* Inline variant — no bottom margin, for use inside field rows */
 .imgedit-toggle-inline {

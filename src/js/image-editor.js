@@ -347,6 +347,7 @@ function buildTrimBody(action) {
                 <input type="checkbox" class="ie-trim-auto" data-uid="${uid}" ${o.auto ? 'checked' : ''}/>
                 <span class="imgedit-toggle-slider"></span>
                 <span class="imgedit-toggle-text">Auto-trim</span>
+                <span class="imgedit-toggle-hint ie-trim-hint" data-uid="${uid}" style="display:${o.auto ? 'inline' : 'none'}">— remove transparent borders</span>
             </label>
             <div class="imgedit-option-row ie-trim-manual" data-uid="${uid}" style="display:${o.auto ? 'none' : 'flex'}">
                 <div class="imgedit-field-group">
@@ -374,9 +375,11 @@ function wireTrimCard(body, action) {
     const uid = `at${action.id}`;
     const autoChk = body.querySelector(`.ie-trim-auto[data-uid="${uid}"]`);
     const manualRow = body.querySelector(`.ie-trim-manual[data-uid="${uid}"]`);
+    const hint = body.querySelector(`.ie-trim-hint[data-uid="${uid}"]`);
     autoChk?.addEventListener('change', function () {
         action.opts.auto = this.checked;
         if (manualRow) manualRow.style.display = this.checked ? 'none' : 'flex';
+        if (hint) hint.style.display = this.checked ? 'inline' : 'none';
         updateUI();
     });
     body.querySelectorAll('.ie-trim-val').forEach(inp => {
