@@ -45,6 +45,11 @@
   aspect-ratio: 1 / 1;
 }
 
+/* ── Browse bar (Files / Folder buttons under drop zone) ────────────────── */
+.imgedit-browse-bar {
+  @apply flex gap-2 mt-2;
+}
+
 /* ── Thumbnail list ─────────────────────────────────────────────────────── */
 .imgedit-thumb-col {
   @apply flex flex-col min-h-0;

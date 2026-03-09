@@ -1,6 +1,7 @@
 /**
  * image-editor.js — Image Editor page module
  * Client-side image trim & resize with dynamic action pipeline.
+ * Supports folder uploads — preserves directory tree on download via JSZip.
  * Exports initImageEditor().
  */
 
@@ -9,10 +10,11 @@ console.log('[image-editor] ✓ module loaded');
 const $ = id => document.getElementById(id);
 
 // ═══ STATE ═══════════════════════════════════════════════════════════════════
-let images = [];    // { file, url, img (HTMLImageElement), w, h }
+let images = [];    // { file, url, img (HTMLImageElement), w, h, relPath }
 let actions = [];   // { id, type:'trim'|'resize', opts:{...} }
 let actionIdSeq = 0;
 let busy = false;
+let hasFolders = false; // true when at least one image came from a folder
 
 // ═══ INIT ════════════════════════════════════════════════════════════════════
 export function initImageEditor() {
@@ -21,6 +23,7 @@ export function initImageEditor() {
     actions = [];
     actionIdSeq = 0;
     busy = false;
+    hasFolders = false;
     wireEvents();
     renderActions();
     updateUI();
@@ -28,20 +31,40 @@ export function initImageEditor() {
 
 // ═══ WIRING ══════════════════════════════════════════════════════════════════
 function wireEvents() {
-    const dz = $('ie-drop-zone'), fi = $('ie-file-input');
+    const dz = $('ie-drop-zone');
+    const fi = $('ie-file-input');
+    const folderFi = $('ie-folder-input');
 
     if (dz) {
         dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
         dz.addEventListener('dragleave', () => dz.classList.remove('over'));
-        dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('over'); addFiles(e.dataTransfer.files); });
-        dz.addEventListener('click', e => { if (e.target.id !== 'ie-browse') fi?.click(); });
+        dz.addEventListener('drop', e => {
+            e.preventDefault();
+            dz.classList.remove('over');
+            handleDrop(e.dataTransfer);
+        });
+        dz.addEventListener('click', e => {
+            if (e.target.id !== 'ie-browse' && e.target.id !== 'ie-browse-files' && e.target.id !== 'ie-browse-folder')
+                fi?.click();
+        });
     }
     $('ie-browse')?.addEventListener('click', e => { e.stopPropagation(); fi?.click(); });
-    fi?.addEventListener('change', () => { addFiles([...fi.files]); fi.value = ''; });
+    $('ie-browse-files')?.addEventListener('click', e => { e.stopPropagation(); fi?.click(); });
+    $('ie-browse-folder')?.addEventListener('click', e => { e.stopPropagation(); folderFi?.click(); });
+
+    fi?.addEventListener('change', () => {
+        addFilesWithPaths([...fi.files]);
+        fi.value = '';
+    });
+    folderFi?.addEventListener('change', () => {
+        addFilesWithPaths([...folderFi.files]);
+        folderFi.value = '';
+    });
 
     $('ie-clear-imgs')?.addEventListener('click', () => {
         images.forEach(i => URL.revokeObjectURL(i.url));
         images = [];
+        hasFolders = false;
         renderThumbs();
         updateUI();
     });
@@ -61,25 +84,121 @@ function wireEvents() {
     $('ie-btn-run')?.addEventListener('click', onRun);
 }
 
-// ═══ ADD FILES ═══════════════════════════════════════════════════════════════
-function addFiles(fileList) {
-    const accepted = ['image/png','image/jpeg','image/gif','image/webp','image/svg+xml'];
-    const arr = Array.from(fileList).filter(f => accepted.includes(f.type));
-    if (!arr.length) return;
+// ═══ FILE / FOLDER HANDLING ══════════════════════════════════════════════════
+const ACCEPTED_TYPES = ['image/png','image/jpeg','image/gif','image/webp','image/svg+xml'];
+const ACCEPTED_EXTS  = ['.png','.jpg','.jpeg','.gif','.webp','.svg'];
 
+function isImageFile(file) {
+    if (ACCEPTED_TYPES.includes(file.type)) return true;
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    return ACCEPTED_EXTS.includes(ext);
+}
+
+/**
+ * Handle drag-and-drop: uses webkitGetAsEntry() to traverse folders recursively.
+ */
+async function handleDrop(dataTransfer) {
+    const items = dataTransfer.items;
+    if (!items || !items.length) {
+        addFilesWithPaths([...dataTransfer.files]);
+        return;
+    }
+
+    const entries = [];
+    for (let i = 0; i < items.length; i++) {
+        const entry = items[i].webkitGetAsEntry?.();
+        if (entry) entries.push(entry);
+    }
+
+    if (!entries.length) {
+        addFilesWithPaths([...dataTransfer.files]);
+        return;
+    }
+
+    const collected = [];
+    await Promise.all(entries.map(e => traverseEntry(e, '', collected)));
+    if (collected.length) {
+        loadImageEntries(collected);
+    }
+}
+
+/**
+ * Recursively traverse a FileSystemEntry tree.
+ * Collects { file, relPath } for image files only.
+ */
+function traverseEntry(entry, parentPath, collected) {
+    return new Promise(resolve => {
+        if (entry.isFile) {
+            entry.file(file => {
+                if (isImageFile(file)) {
+                    const relPath = parentPath ? `${parentPath}/${file.name}` : file.name;
+                    collected.push({ file, relPath });
+                }
+                resolve();
+            }, () => resolve());
+        } else if (entry.isDirectory) {
+            const reader = entry.createReader();
+            const dirPath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
+            readAllEntries(reader, dirPath, collected).then(resolve);
+        } else {
+            resolve();
+        }
+    });
+}
+
+function readAllEntries(reader, dirPath, collected) {
+    return new Promise(resolve => {
+        const allEntries = [];
+        (function readBatch() {
+            reader.readEntries(batch => {
+                if (!batch.length) {
+                    Promise.all(allEntries.map(e => traverseEntry(e, dirPath, collected))).then(resolve);
+                } else {
+                    allEntries.push(...batch);
+                    readBatch(); // readEntries can return partial results
+                }
+            }, () => resolve());
+        })();
+    });
+}
+
+/**
+ * Add files from <input> (both file and folder inputs).
+ * For folder input, files have webkitRelativePath.
+ */
+function addFilesWithPaths(fileList) {
+    const collected = [];
+    for (const file of fileList) {
+        if (!isImageFile(file)) continue;
+        // webkitRelativePath is set when using webkitdirectory input
+        const relPath = file.webkitRelativePath || file.name;
+        collected.push({ file, relPath });
+    }
+    if (collected.length) loadImageEntries(collected);
+}
+
+/**
+ * Load collected { file, relPath } entries into the images array.
+ */
+function loadImageEntries(entries) {
     let loaded = 0;
-    arr.forEach(file => {
+    const total = entries.length;
+
+    entries.forEach(({ file, relPath }) => {
+        // Check if any relPath has a '/' → folder structure present
+        if (relPath.includes('/')) hasFolders = true;
+
         const url = URL.createObjectURL(file);
         const img = new Image();
         img.onload = () => {
-            images.push({ file, url, img, w: img.naturalWidth, h: img.naturalHeight });
+            images.push({ file, url, img, w: img.naturalWidth, h: img.naturalHeight, relPath });
             loaded++;
-            if (loaded === arr.length) { renderThumbs(); updateUI(); }
+            if (loaded === total) { renderThumbs(); updateUI(); }
         };
         img.onerror = () => {
             URL.revokeObjectURL(url);
             loaded++;
-            if (loaded === arr.length) { renderThumbs(); updateUI(); }
+            if (loaded === total) { renderThumbs(); updateUI(); }
         };
         img.src = url;
     });
@@ -105,6 +224,7 @@ function renderThumbs() {
     images.forEach((entry, i) => {
         const thumb = document.createElement('div');
         thumb.className = 'imgedit-thumb';
+        thumb.title = entry.relPath; // show full path on hover
         const im = document.createElement('img');
         im.src = entry.url;
         im.alt = entry.file.name;
@@ -117,6 +237,7 @@ function renderThumbs() {
             e.stopPropagation();
             URL.revokeObjectURL(entry.url);
             images.splice(i, 1);
+            hasFolders = images.some(img => img.relPath.includes('/'));
             renderThumbs();
             updateUI();
         });
@@ -124,7 +245,9 @@ function renderThumbs() {
 
         const info = document.createElement('div');
         info.className = 'imgedit-thumb-info';
-        info.textContent = `${entry.w}×${entry.h}`;
+        // Show folder prefix if from a folder
+        const shortPath = entry.relPath.includes('/') ? '📁 ' + entry.relPath.split('/').slice(-2).join('/') : `${entry.w}×${entry.h}`;
+        info.textContent = shortPath;
         thumb.appendChild(info);
 
         list.appendChild(thumb);
@@ -162,7 +285,6 @@ function renderActions() {
     const empty = $('ie-action-empty');
     if (!list) return;
 
-    // Remove existing cards (keep the empty placeholder)
     list.querySelectorAll('.imgedit-action-card').forEach(el => el.remove());
 
     if (!actions.length) {
@@ -176,7 +298,6 @@ function renderActions() {
         card.className = 'imgedit-action-card';
         card.dataset.actionId = action.id;
 
-        // Header
         const head = document.createElement('div');
         head.className = 'imgedit-action-card-head';
         head.innerHTML = `
@@ -192,7 +313,6 @@ function renderActions() {
         head.appendChild(delBtn);
         card.appendChild(head);
 
-        // Body with settings
         const body = document.createElement('div');
         body.className = 'imgedit-action-card-body';
 
@@ -438,13 +558,11 @@ function renderOrderList() {
 
 // ═══ UI UPDATE ═══════════════════════════════════════════════════════════════
 function updateUI() {
-    // Image badge
     const badge = $('ie-img-count');
     if (badge) badge.textContent = images.length ? `${images.length}` : '';
     const clearImgBtn = $('ie-clear-imgs');
     if (clearImgBtn) clearImgBtn.style.display = images.length ? 'inline-flex' : 'none';
 
-    // Action badge + clear
     const aBadge = $('ie-action-count');
     if (aBadge) aBadge.textContent = actions.length ? `${actions.length}` : '';
     const clearActBtn = $('ie-clear-actions');
@@ -469,7 +587,9 @@ function updateSummary() {
         return;
     }
 
-    let html = `<div style="margin-bottom:0.3rem;color:var(--snap-text)">${images.length} image${images.length > 1 ? 's' : ''} · ${actions.length} action${actions.length > 1 ? 's' : ''}</div>`;
+    let html = `<div style="margin-bottom:0.3rem;color:var(--snap-text)">${images.length} image${images.length > 1 ? 's' : ''}`;
+    if (hasFolders) html += ' (with folders)';
+    html += ` · ${actions.length} action${actions.length > 1 ? 's' : ''}</div>`;
     actions.forEach((a, i) => {
         if (a.type === 'trim') {
             html += makeRunItem('trim', `${i + 1}. Trim (${a.opts.auto ? 'auto' : 'manual'})`);
@@ -481,6 +601,9 @@ function updateSummary() {
             }
         }
     });
+    if (hasFolders) {
+        html += `<div class="imgedit-run-dim" style="margin-top:0.3rem">📦 Will download as ZIP preserving folder structure</div>`;
+    }
     summary.innerHTML = html;
 }
 
@@ -494,18 +617,14 @@ async function onRun() {
     busy = true;
     updateUI();
 
-    const logEl = $('ie-log');
     const progEl = $('ie-prog');
     const barEl = $('ie-prog-bar');
     const pctEl = $('ie-prog-pct');
     const lblEl = $('ie-prog-label');
 
-    if (logEl) logEl.innerHTML = '';
     if (progEl) progEl.style.display = 'block';
-    log('Starting processing…', 'info');
-    log(`Pipeline: ${actions.map((a, i) => `${i + 1}.${a.type}`).join(' → ')}`, 'dim');
 
-    const results = [];
+    const results = [];  // { blob, relPath }
     const total = images.length;
 
     for (let i = 0; i < total; i++) {
@@ -520,12 +639,7 @@ async function onRun() {
             for (const action of actions) {
                 if (action.type === 'trim') {
                     const o = action.opts;
-                    if (o.auto) {
-                        canvas = autoTrim(canvas);
-                    } else {
-                        canvas = manualTrim(canvas, o.top, o.right, o.bottom, o.left);
-                    }
-                    log(`✓ Trimmed "${entry.file.name}" → ${canvas.width}×${canvas.height}`, 'ok');
+                    canvas = o.auto ? autoTrim(canvas) : manualTrim(canvas, o.top, o.right, o.bottom, o.left);
                 } else if (action.type === 'resize') {
                     const o = action.opts;
                     if (o.mode === 'scale') {
@@ -540,14 +654,13 @@ async function onRun() {
                         }
                         canvas = resizeCanvas(canvas, Math.max(1, fw), Math.max(1, fh));
                     }
-                    log(`✓ Resized "${entry.file.name}" → ${canvas.width}×${canvas.height}`, 'ok');
                 }
             }
 
             const blob = await canvasToBlob(canvas, entry.file.type);
-            results.push({ blob, name: entry.file.name });
+            results.push({ blob, relPath: entry.relPath });
         } catch (err) {
-            log(`✗ Error "${entry.file.name}": ${err.message}`, 'err');
+            console.error(`[image-editor] Error "${entry.relPath}":`, err);
         }
     }
 
@@ -555,20 +668,53 @@ async function onRun() {
     if (pctEl) pctEl.textContent = '100%';
     if (lblEl) lblEl.textContent = 'Done!';
 
-    if (results.length === 1) {
-        downloadBlob(results[0].blob, results[0].name);
-        log(`⬇ Downloaded "${results[0].name}"`, 'ok');
+    // ── Download ──
+    if (hasFolders && results.length > 0) {
+        // ZIP download preserving folder tree
+        if (lblEl) lblEl.textContent = 'Creating ZIP…';
+        await downloadAsZip(results);
+    } else if (results.length === 1) {
+        downloadBlob(results[0].blob, results[0].relPath);
     } else if (results.length > 1) {
-        for (const r of results) downloadBlob(r.blob, r.name);
-        log(`⬇ Downloaded ${results.length} images`, 'ok');
-    } else {
-        log('No images processed successfully', 'warn');
+        for (const r of results) downloadBlob(r.blob, r.relPath);
     }
 
-    log(`Finished — ${results.length}/${total} processed`, 'info');
     busy = false;
     updateUI();
     setTimeout(() => { if (progEl) progEl.style.display = 'none'; }, 2000);
+}
+
+// ═══ ZIP DOWNLOAD (preserves folder tree) ════════════════════════════════════
+
+async function downloadAsZip(results) {
+    // Dynamically load JSZip from CDN
+    if (!window.JSZip) {
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+    }
+
+    const zip = new JSZip();
+    for (const { blob, relPath } of results) {
+        zip.file(relPath, blob);
+    }
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' }, meta => {
+        const pctEl = $('ie-prog-pct');
+        const lblEl = $('ie-prog-label');
+        if (pctEl) pctEl.textContent = `${Math.round(meta.percent)}%`;
+        if (lblEl) lblEl.textContent = 'Zipping…';
+    });
+
+    downloadBlob(zipBlob, 'images-edited.zip');
+}
+
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error(`Failed to load ${src}`));
+        document.head.appendChild(s);
+    });
 }
 
 // ═══ IMAGE PROCESSING HELPERS ════════════════════════════════════════════════
