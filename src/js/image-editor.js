@@ -697,6 +697,19 @@ async function onRun() {
     }
 
     busy = false;
+
+    // Clear if "keep" toggles are unchecked
+    if (!$('ie-keep-imgs')?.checked) {
+        images.forEach(i => URL.revokeObjectURL(i.url));
+        images = [];
+        hasFolders = false;
+        renderThumbs();
+    }
+    if (!$('ie-keep-actions')?.checked) {
+        actions = [];
+        renderActions();
+    }
+
     updateUI();
     setTimeout(() => { if (progEl) progEl.style.display = 'none'; }, 2000);
 }

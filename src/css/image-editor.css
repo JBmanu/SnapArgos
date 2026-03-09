@@ -133,6 +133,24 @@
   @apply gap-2;
 }
 
+/* ── Keep after run toggle (bookmark icon in card head) ─────────────────── */
+.imgedit-keep-toggle {
+  @apply cursor-pointer select-none flex items-center;
+}
+.imgedit-keep-toggle input {
+  @apply hidden;
+}
+.imgedit-keep-icon {
+  @apply text-snap-muted2 transition-colors;
+}
+.imgedit-keep-toggle input:checked ~ .imgedit-keep-icon {
+  @apply text-snap-accent;
+  fill: currentColor;
+}
+.imgedit-keep-toggle:hover .imgedit-keep-icon {
+  @apply text-snap-accent;
+}
+
 /* ── Dynamic action list ────────────────────────────────────────────────── */
 .imgedit-action-list {
   @apply flex flex-col gap-2;
