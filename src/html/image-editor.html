@@ -55,104 +55,36 @@
             <div class="step-num">2</div>
             <span class="card-title">Actions</span>
           </div>
+          <span class="col-head-badge" id="ie-action-count"></span>
+          <button class="btn btn-mini" id="ie-clear-actions" style="display:none">Clear all</button>
         </div>
         <div class="card-body">
 
-          <!-- TRIM -->
-          <div class="imgedit-action-group">
-            <label class="imgedit-action-toggle">
-              <input type="checkbox" id="ie-trim-enabled"/>
-              <span class="imgedit-toggle-label">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                    d="M6 2v4M6 18v4M2 6h4m12 0h4M18 2v4m0 12v4M2 18h4m12 0h4M8 8h8v8H8z"/>
-                </svg>
-                Trim
-              </span>
-            </label>
-            <div class="imgedit-action-body" id="ie-trim-body">
-              <label class="imgedit-option">
-                <input type="checkbox" id="ie-trim-auto" checked/>
-                <span>Auto-trim transparent pixels</span>
-              </label>
-              <div class="imgedit-option-row" id="ie-trim-manual-row" style="display:none">
-                <div class="imgedit-field-group">
-                  <label class="imgedit-field-label">Top</label>
-                  <input type="number" class="imgedit-input" id="ie-trim-top" value="0" min="0" placeholder="px"/>
-                </div>
-                <div class="imgedit-field-group">
-                  <label class="imgedit-field-label">Right</label>
-                  <input type="number" class="imgedit-input" id="ie-trim-right" value="0" min="0" placeholder="px"/>
-                </div>
-                <div class="imgedit-field-group">
-                  <label class="imgedit-field-label">Bottom</label>
-                  <input type="number" class="imgedit-input" id="ie-trim-bottom" value="0" min="0" placeholder="px"/>
-                </div>
-                <div class="imgedit-field-group">
-                  <label class="imgedit-field-label">Left</label>
-                  <input type="number" class="imgedit-input" id="ie-trim-left" value="0" min="0" placeholder="px"/>
-                </div>
-              </div>
+          <!-- Dynamic action instances rendered by JS -->
+          <div class="imgedit-action-list" id="ie-action-list">
+            <div class="imgedit-action-empty" id="ie-action-empty">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="28" height="28">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M12 4v16m8-8H4"/>
+              </svg>
+              <span>Add actions with the buttons below</span>
             </div>
           </div>
 
-          <!-- RESIZE -->
-          <div class="imgedit-action-group">
-            <label class="imgedit-action-toggle">
-              <input type="checkbox" id="ie-resize-enabled"/>
-              <span class="imgedit-toggle-label">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                    d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"/>
-                </svg>
-                Resize
-              </span>
-            </label>
-            <div class="imgedit-action-body" id="ie-resize-body">
-              <div class="imgedit-resize-modes">
-                <label class="imgedit-radio">
-                  <input type="radio" name="ie-resize-mode" value="scale" checked/>
-                  <span>Scale by %</span>
-                </label>
-                <label class="imgedit-radio">
-                  <input type="radio" name="ie-resize-mode" value="fixed"/>
-                  <span>Fixed size (px)</span>
-                </label>
-              </div>
-
-              <!-- Scale mode -->
-              <div class="imgedit-option-row" id="ie-resize-scale-row">
-                <div class="imgedit-field-group">
-                  <label class="imgedit-field-label">Scale</label>
-                  <div class="imgedit-input-suffix">
-                    <input type="number" class="imgedit-input" id="ie-resize-scale" value="50" min="1" max="1000" step="1"/>
-                    <span class="imgedit-suffix">%</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Fixed mode -->
-              <div class="imgedit-option-row" id="ie-resize-fixed-row" style="display:none">
-                <div class="imgedit-field-group">
-                  <label class="imgedit-field-label">Width</label>
-                  <div class="imgedit-input-suffix">
-                    <input type="number" class="imgedit-input" id="ie-resize-w" value="256" min="1" placeholder="px"/>
-                    <span class="imgedit-suffix">px</span>
-                  </div>
-                </div>
-                <div class="imgedit-field-group">
-                  <label class="imgedit-field-label">Height</label>
-                  <div class="imgedit-input-suffix">
-                    <input type="number" class="imgedit-input" id="ie-resize-h" value="256" min="1" placeholder="px"/>
-                    <span class="imgedit-suffix">px</span>
-                  </div>
-                </div>
-                <label class="imgedit-option">
-                  <input type="checkbox" id="ie-resize-lock" checked/>
-                  <span>Keep aspect ratio</span>
-                </label>
-              </div>
-            </div>
+          <!-- Add action buttons -->
+          <div class="imgedit-add-bar">
+            <button class="btn btn-small imgedit-add-btn" id="ie-add-trim">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="15" height="15">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Trim
+            </button>
+            <button class="btn btn-small imgedit-add-btn" id="ie-add-resize">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="15" height="15">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+              Resize
+            </button>
           </div>
 
         </div>

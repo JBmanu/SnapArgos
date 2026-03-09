@@ -156,55 +156,103 @@
   flex: 1;
 }
 
-.imgedit-action-group {
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--snap-border, #2e3558);
-}
-.imgedit-action-group:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-.imgedit-action-group:first-child {
-  padding-top: 0;
+/* ── Dynamic action list ────────────────────────────────────────────────── */
+.imgedit-action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-height: 40px;
 }
 
-/* ── Toggle header ──────────────────────────────────────────────────────── */
-.imgedit-action-toggle {
+.imgedit-action-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1.2rem 0;
+  color: var(--snap-muted2, #3d4568);
+  font-size: 0.8rem;
+  text-align: center;
+}
+.imgedit-action-empty svg {
+  opacity: 0.35;
+}
+
+/* ── Single action card ─────────────────────────────────────────────────── */
+.imgedit-action-card {
+  border: 1px solid var(--snap-border, #2e3558);
+  border-radius: 10px;
+  background: var(--snap-surface, #111425);
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.imgedit-action-card:hover {
+  border-color: color-mix(in srgb, var(--snap-border, #2e3558) 50%, var(--snap-accent, #5fd4ff) 50%);
+}
+
+.imgedit-action-card-head {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  cursor: pointer;
-  user-select: none;
+  padding: 0.5rem 0.7rem;
+  background: var(--snap-surface2, #181c32);
 }
-.imgedit-action-toggle input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  border: 1px solid var(--snap-border, #2e3558);
-  background: var(--snap-surface, #111425);
-  accent-color: var(--snap-accent, #5fd4ff);
-  cursor: pointer;
-}
-.imgedit-toggle-label {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--snap-text, #edf0f7);
-}
-.imgedit-toggle-label svg {
+.imgedit-action-card-head svg {
+  flex-shrink: 0;
   color: var(--snap-accent, #5fd4ff);
 }
-
-/* ── Action body (collapsible) ──────────────────────────────────────────── */
-.imgedit-action-body {
-  margin-top: 0.6rem;
-  padding-left: 1.6rem;
-  display: none;
+.imgedit-action-card-title {
+  font-weight: 600;
+  font-size: 0.82rem;
+  color: var(--snap-text, #edf0f7);
 }
-.imgedit-action-body.open {
-  display: block;
+.imgedit-action-card-idx {
+  font-size: 0.65rem;
+  font-family: 'DM Mono', monospace;
+  color: var(--snap-muted2, #3d4568);
+  margin-left: 0.2rem;
+}
+.imgedit-action-card-del {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--snap-muted, #7585ad);
+  font-size: 13px;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s;
+}
+.imgedit-action-card-del:hover {
+  background: var(--snap-tint-red, #280e14);
+  border-color: #f87171;
+  color: #f87171;
+}
+
+.imgedit-action-card-body {
+  padding: 0.6rem 0.7rem 0.7rem;
+}
+
+/* ── Add action bar ─────────────────────────────────────────────────────── */
+.imgedit-add-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--snap-border, #2e3558);
+}
+.imgedit-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.imgedit-add-btn svg {
+  color: var(--snap-accent, #5fd4ff);
 }
 
 /* ── Options ────────────────────────────────────────────────────────────── */
