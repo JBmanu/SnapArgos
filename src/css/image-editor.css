@@ -1,0 +1,360 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   image-editor.css — Image Editor page styles
+   Uses the same snap- color tokens and component patterns as uploader/overview.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Layout ─────────────────────────────────────────────────────────────── */
+.imgedit-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.imgedit-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.imgedit-bottom {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .imgedit-bottom {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Images section inner ───────────────────────────────────────────────── */
+.imgedit-images-inner {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 1rem;
+  min-height: 180px;
+}
+
+@media (max-width: 640px) {
+  .imgedit-images-inner {
+    grid-template-columns: 1fr;
+  }
+}
+
+.imgedit-drop-col {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Thumbnail list ─────────────────────────────────────────────────────── */
+.imgedit-thumb-col {
+  min-height: 0;
+}
+
+.imgedit-thumb-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.imgedit-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 140px;
+  color: var(--snap-muted, #7585ad);
+  font-size: 0.8rem;
+  text-align: center;
+}
+.imgedit-empty-state svg {
+  opacity: 0.4;
+}
+
+/* ── Thumbnail chip ─────────────────────────────────────────────────────── */
+.imgedit-thumb {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  border-radius: 8px;
+  border: 1px solid var(--snap-border, #2e3558);
+  background: var(--snap-surface, #111425);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.imgedit-thumb:hover {
+  border-color: var(--snap-accent, #5fd4ff);
+}
+.imgedit-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  image-rendering: auto;
+}
+.imgedit-thumb-del {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0,0,0,0.65);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  padding: 0;
+}
+.imgedit-thumb:hover .imgedit-thumb-del {
+  opacity: 1;
+}
+.imgedit-thumb-info {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 2px 4px;
+  background: rgba(0,0,0,0.65);
+  color: var(--snap-text, #edf0f7);
+  font-size: 0.6rem;
+  font-family: 'DM Mono', monospace;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Actions card ───────────────────────────────────────────────────────── */
+.imgedit-actions-card {
+  flex: 1;
+}
+
+.imgedit-action-group {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--snap-border, #2e3558);
+}
+.imgedit-action-group:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.imgedit-action-group:first-child {
+  padding-top: 0;
+}
+
+/* ── Toggle header ──────────────────────────────────────────────────────── */
+.imgedit-action-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+.imgedit-action-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--snap-border, #2e3558);
+  background: var(--snap-surface, #111425);
+  accent-color: var(--snap-accent, #5fd4ff);
+  cursor: pointer;
+}
+.imgedit-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--snap-text, #edf0f7);
+}
+.imgedit-toggle-label svg {
+  color: var(--snap-accent, #5fd4ff);
+}
+
+/* ── Action body (collapsible) ──────────────────────────────────────────── */
+.imgedit-action-body {
+  margin-top: 0.6rem;
+  padding-left: 1.6rem;
+  display: none;
+}
+.imgedit-action-body.open {
+  display: block;
+}
+
+/* ── Options ────────────────────────────────────────────────────────────── */
+.imgedit-option {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--snap-muted, #7585ad);
+  cursor: pointer;
+  margin-bottom: 0.4rem;
+}
+.imgedit-option input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid var(--snap-border, #2e3558);
+  background: var(--snap-surface, #111425);
+  accent-color: var(--snap-accent, #5fd4ff);
+  cursor: pointer;
+}
+
+.imgedit-option-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+
+.imgedit-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.imgedit-field-label {
+  font-size: 0.7rem;
+  color: var(--snap-muted, #7585ad);
+  font-family: 'DM Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.imgedit-input {
+  width: 80px;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.8rem;
+  font-family: 'DM Mono', monospace;
+  background: var(--snap-surface, #111425);
+  border: 1px solid var(--snap-border, #2e3558);
+  border-radius: 6px;
+  color: var(--snap-text, #edf0f7);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.imgedit-input:focus {
+  border-color: var(--snap-accent, #5fd4ff);
+}
+
+.imgedit-input-suffix {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.imgedit-input-suffix .imgedit-input {
+  padding-right: 1.8rem;
+}
+.imgedit-suffix {
+  position: absolute;
+  right: 0.45rem;
+  font-size: 0.7rem;
+  color: var(--snap-muted2, #3d4568);
+  pointer-events: none;
+  font-family: 'DM Mono', monospace;
+}
+
+/* ── Resize radio ───────────────────────────────────────────────────────── */
+.imgedit-resize-modes {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+.imgedit-radio {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--snap-muted, #7585ad);
+  cursor: pointer;
+}
+.imgedit-radio input[type="radio"] {
+  accent-color: var(--snap-accent, #5fd4ff);
+  cursor: pointer;
+}
+
+/* ── Run column ─────────────────────────────────────────────────────────── */
+.imgedit-run-col {
+  position: sticky;
+  top: 80px;
+}
+
+.imgedit-run-summary {
+  margin-bottom: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--snap-muted, #7585ad);
+  line-height: 1.5;
+}
+.imgedit-run-dim {
+  color: var(--snap-muted2, #3d4568);
+  font-style: italic;
+  font-size: 0.78rem;
+}
+.imgedit-run-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0;
+}
+.imgedit-run-item svg {
+  flex-shrink: 0;
+  color: var(--snap-accent, #5fd4ff);
+}
+.imgedit-run-item span {
+  color: var(--snap-text, #edf0f7);
+}
+
+.imgedit-run-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+.imgedit-run-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ── Progress & Log ─────────────────────────────────────────────────────── */
+.imgedit-prog {
+  margin-top: 0.75rem;
+}
+
+.imgedit-log {
+  margin-top: 0.75rem;
+  max-height: 180px;
+  overflow-y: auto;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+
+/* ── Scrollbar (match project style) ────────────────────────────────────── */
+.imgedit-thumb-list::-webkit-scrollbar,
+.imgedit-log::-webkit-scrollbar {
+  width: 5px;
+}
+.imgedit-thumb-list::-webkit-scrollbar-track,
+.imgedit-log::-webkit-scrollbar-track {
+  background: transparent;
+}
+.imgedit-thumb-list::-webkit-scrollbar-thumb,
+.imgedit-log::-webkit-scrollbar-thumb {
+  background: var(--snap-muted2, #3d4568);
+  border-radius: 4px;
+}

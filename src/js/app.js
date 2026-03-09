@@ -58,9 +58,10 @@ document.addEventListener('keydown', e => {
 // ═══ PAGE ROUTING ════════════════════════════════════════════════════════════
 let uploaderInitFn = null;
 let overviewInitFn = null;
+let imageEditorInitFn = null;
 let legalInitFn    = null;
 
-const VALID_PAGES = ['overview', 'uploader', 'legal'];
+const VALID_PAGES = ['overview', 'uploader', 'image-editor', 'legal'];
 
 async function navigateTo(page, section = null) {
     // If already on this page and a section deep-link is requested, just re-init
@@ -112,7 +113,13 @@ async function navigateTo(page, section = null) {
         }
         legalInitFn(section); // pass section so the right card opens; null = all collapsed
     }
-
+    if (page === 'image-editor') {
+        if (!imageEditorInitFn) {
+            const mod = await import('./image-editor.js');
+            imageEditorInitFn = mod.initImageEditor;
+        }
+        imageEditorInitFn();
+    }
     history.replaceState(null, '', `#${page}`);
 
     // Scroll to section anchor (used by footer deep-links)
