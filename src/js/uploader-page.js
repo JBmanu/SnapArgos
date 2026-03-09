@@ -320,7 +320,21 @@ async function onUploadClick() {
     if (busy) return; const vf = files.filter(f => f.valid);
     setBusy(true); setProgress(true, 0, 'Starting…');
     try { if (selMode === 'projects') await uploadToProjects(vf); else await uploadToSprites(vf); }
-    catch (e) { log(e.message, 'err'); } setProgress(false); setBusy(false);
+    catch (e) { log(e.message, 'err'); }
+    setProgress(false); setBusy(false);
+
+    // Clear sections if "Keep" toggles are unchecked
+    if (!$('up-keep-selection')?.checked) {
+        clearSelection();
+        log('Selection cleared (keep off)', 'dim');
+    }
+    if (!$('up-keep-files')?.checked) {
+        files = [];
+        renderFiles();
+        updateDetectBox();
+        checkUploadReady();
+        log('Files cleared (keep off)', 'dim');
+    }
 }
 
 async function onDownloadClick() {

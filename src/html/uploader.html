@@ -12,6 +12,13 @@
         <div class="step-num">1</div>
         <span class="card-title">Projects &amp; Sprites</span>
       </div>
+      <label class="imgedit-keep-toggle" title="Keep selection after upload">
+        <input type="checkbox" id="up-keep-selection" checked/>
+        <svg class="imgedit-keep-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+        </svg>
+        <span class="imgedit-keep-label">Keep</span>
+      </label>
       <span id="sel-summary" class="sel-summary"></span>
     </div>
     <div class="card-body">
@@ -80,6 +87,13 @@
           <div class="step-num">2</div>
           <span class="card-title">Files</span>
         </div>
+        <label class="imgedit-keep-toggle" title="Keep files after upload">
+          <input type="checkbox" id="up-keep-files" checked/>
+          <svg class="imgedit-keep-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+          </svg>
+          <span class="imgedit-keep-label">Keep</span>
+        </label>
         <span id="file-count-badge" class="col-head-badge file-count-badge"></span>
         <button class="btn btn-mini btn-clear-files" id="btn-clear-files">Clear all</button>
       </div>
@@ -104,6 +118,13 @@
                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
                 </svg>
                 <span id="btn-label">Upload to Snap!</span>
+              </button>
+              <button class="btn btn-download-xml" id="btn-download-xml" style="display:none" title="Download modified XML instead of saving to cloud">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                Download XML
               </button>
             </div>
           </div>
