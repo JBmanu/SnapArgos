@@ -215,27 +215,29 @@ function buildTrimBody(action) {
     const o = action.opts;
     const uid = `at${action.id}`;
     return `
-        <label class="imgedit-toggle-option">
-            <input type="checkbox" class="ie-trim-auto" data-uid="${uid}" ${o.auto ? 'checked' : ''}/>
-            <span class="imgedit-toggle-slider"></span>
-            <span class="imgedit-toggle-text">Auto-trim transparent pixels</span>
-        </label>
-        <div class="imgedit-option-row ie-trim-manual" data-uid="${uid}" style="display:${o.auto ? 'none' : 'flex'}">
-            <div class="imgedit-field-group">
-                <label class="imgedit-field-label">Top</label>
-                <input type="number" class="imgedit-input ie-trim-val" data-side="top" value="${o.top}" min="0" placeholder="px"/>
-            </div>
-            <div class="imgedit-field-group">
-                <label class="imgedit-field-label">Right</label>
-                <input type="number" class="imgedit-input ie-trim-val" data-side="right" value="${o.right}" min="0" placeholder="px"/>
-            </div>
-            <div class="imgedit-field-group">
-                <label class="imgedit-field-label">Bottom</label>
-                <input type="number" class="imgedit-input ie-trim-val" data-side="bottom" value="${o.bottom}" min="0" placeholder="px"/>
-            </div>
-            <div class="imgedit-field-group">
-                <label class="imgedit-field-label">Left</label>
-                <input type="number" class="imgedit-input ie-trim-val" data-side="left" value="${o.left}" min="0" placeholder="px"/>
+        <div class="imgedit-trim-layout">
+            <label class="imgedit-toggle-option imgedit-toggle-inline">
+                <input type="checkbox" class="ie-trim-auto" data-uid="${uid}" ${o.auto ? 'checked' : ''}/>
+                <span class="imgedit-toggle-slider"></span>
+                <span class="imgedit-toggle-text">Auto-trim</span>
+            </label>
+            <div class="imgedit-option-row ie-trim-manual" data-uid="${uid}" style="display:${o.auto ? 'none' : 'flex'}">
+                <div class="imgedit-field-group">
+                    <label class="imgedit-field-label">Top</label>
+                    <input type="number" class="imgedit-input ie-trim-val" data-side="top" value="${o.top}" min="0" placeholder="px"/>
+                </div>
+                <div class="imgedit-field-group">
+                    <label class="imgedit-field-label">Right</label>
+                    <input type="number" class="imgedit-input ie-trim-val" data-side="right" value="${o.right}" min="0" placeholder="px"/>
+                </div>
+                <div class="imgedit-field-group">
+                    <label class="imgedit-field-label">Bottom</label>
+                    <input type="number" class="imgedit-input ie-trim-val" data-side="bottom" value="${o.bottom}" min="0" placeholder="px"/>
+                </div>
+                <div class="imgedit-field-group">
+                    <label class="imgedit-field-label">Left</label>
+                    <input type="number" class="imgedit-input ie-trim-val" data-side="left" value="${o.left}" min="0" placeholder="px"/>
+                </div>
             </div>
         </div>
     `;
@@ -296,10 +298,13 @@ function buildResizeBody(action) {
                     <span class="imgedit-suffix">px</span>
                 </div>
             </div>
-            <label class="imgedit-option">
-                <input type="checkbox" class="ie-rlock" ${o.lock ? 'checked' : ''}/>
-                <span>Keep aspect ratio</span>
-            </label>
+            <div class="imgedit-lock-group">
+                <label class="imgedit-toggle-option imgedit-toggle-inline">
+                    <input type="checkbox" class="ie-rlock" ${o.lock ? 'checked' : ''}/>
+                    <span class="imgedit-toggle-slider"></span>
+                    <span class="imgedit-toggle-text">Keep ratio</span>
+                </label>
+            </div>
         </div>
     `;
 }
@@ -349,6 +354,7 @@ function wireResizeCard(body, action) {
     });
     lockChk?.addEventListener('change', function () {
         action.opts.lock = this.checked;
+        updateUI();
     });
 }
 

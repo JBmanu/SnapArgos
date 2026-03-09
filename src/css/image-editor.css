@@ -212,6 +212,22 @@
   @apply text-snap-text;
 }
 
+/* Inline variant — no bottom margin, for use inside field rows */
+.imgedit-toggle-inline {
+  @apply mb-0;
+}
+
+/* Trim: toggle left-aligned, manual fields next to it */
+.imgedit-trim-layout {
+  @apply flex items-center gap-3 flex-wrap;
+}
+
+/* Lock group: vertically centered with the W/H inputs only (ignoring their labels) */
+.imgedit-lock-group {
+  @apply self-center;
+  padding-top: calc(0.7rem * 1.2 + 2px); /* label line-height + gap-0.5 */
+}
+
 /* ── Options ────────────────────────────────────────────────────────────── */
 .imgedit-option {
   @apply flex items-center gap-1 text-snap-muted cursor-pointer;
@@ -226,7 +242,7 @@
 }
 
 .imgedit-option-row {
-  @apply flex flex-wrap gap-2;
+  @apply flex flex-wrap gap-2 items-center;
   margin-top: 0.4rem;
 }
 
