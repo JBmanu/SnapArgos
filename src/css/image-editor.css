@@ -45,9 +45,24 @@
   aspect-ratio: 1 / 1;
 }
 
-/* ── Browse bar (Files / Folder buttons above drop zone) ────────────────── */
-.imgedit-browse-bar {
-  @apply flex gap-2 mb-2;
+/* ── Browse group (inside drop zone) ─────────────────────────────────────── */
+.imgedit-browse-group {
+  @apply flex items-center gap-2 mt-3;
+}
+.imgedit-browse-btn {
+  @apply inline-flex items-center gap-1.5 font-display text-snap-accent cursor-pointer bg-transparent border border-snap-border rounded-lg transition-all;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.7rem;
+}
+.imgedit-browse-btn:hover {
+  @apply border-snap-accent bg-snap-surface2;
+}
+.imgedit-browse-btn svg {
+  @apply opacity-70;
+}
+.imgedit-browse-sep {
+  @apply text-snap-muted2;
+  font-size: 0.72rem;
 }
 
 /* ── Thumbnail list ─────────────────────────────────────────────────────── */

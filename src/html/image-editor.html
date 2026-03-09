@@ -19,22 +19,6 @@
         <div class="imgedit-images-inner">
           <!-- Drop zone -->
           <div class="imgedit-drop-col">
-            <div class="imgedit-browse-bar">
-              <button class="btn btn-small imgedit-add-btn" id="ie-browse-files" type="button">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="15" height="15">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
-                Files
-              </button>
-              <button class="btn btn-small imgedit-add-btn" id="ie-browse-folder" type="button">
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="15" height="15">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
-                    d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
-                </svg>
-                Folder
-              </button>
-            </div>
             <div class="drop-zone" id="ie-drop-zone">
               <svg class="drop-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
@@ -42,6 +26,23 @@
               </svg>
               <div class="drop-text">Drop images or folders here</div>
               <div class="drop-sub">PNG, JPG, GIF, WEBP, SVG</div>
+              <div class="imgedit-browse-group">
+                <button class="imgedit-browse-btn" id="ie-browse-files" type="button">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                  Browse files
+                </button>
+                <span class="imgedit-browse-sep">or</span>
+                <button class="imgedit-browse-btn" id="ie-browse-folder" type="button">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/>
+                  </svg>
+                  Browse folder
+                </button>
+              </div>
             </div>
             <input id="ie-file-input" type="file" class="file-input-hidden" multiple accept="image/*"/>
             <input id="ie-folder-input" type="file" class="file-input-hidden" webkitdirectory/>

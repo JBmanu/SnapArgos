@@ -35,7 +35,7 @@ function wireEvents() {
     const fi = $('ie-file-input');
     const folderFi = $('ie-folder-input');
 
-    // Drop zone: drag-and-drop only (no click-to-browse — buttons handle that)
+    // Drop zone: drag-and-drop + click-to-browse-files
     if (dz) {
         dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
         dz.addEventListener('dragleave', () => dz.classList.remove('over'));
@@ -44,13 +44,17 @@ function wireEvents() {
             dz.classList.remove('over');
             handleDrop(e.dataTransfer);
         });
-        // Click on drop zone opens file picker as convenience
-        dz.addEventListener('click', () => fi?.click());
+        // Click on drop zone background opens file picker
+        dz.addEventListener('click', e => {
+            // Only if clicking the zone itself, not a button inside
+            if (e.target.closest('.imgedit-browse-btn')) return;
+            fi?.click();
+        });
     }
 
-    // Browse buttons (outside drop zone — no bubble conflict)
-    $('ie-browse-files')?.addEventListener('click', e => { e.preventDefault(); fi?.click(); });
-    $('ie-browse-folder')?.addEventListener('click', e => { e.preventDefault(); folderFi?.click(); });
+    // Browse buttons (inside drop zone — stop propagation to avoid double open)
+    $('ie-browse-files')?.addEventListener('click', e => { e.stopPropagation(); fi?.click(); });
+    $('ie-browse-folder')?.addEventListener('click', e => { e.stopPropagation(); folderFi?.click(); });
 
     fi?.addEventListener('change', () => {
         addFilesWithPaths([...fi.files]);
