@@ -36,7 +36,6 @@ const dropZone = $('drop-zone'), fileInput = $('file-input');
 const fileListEl = $('file-list'), detectBox = $('detect-box');
 const dropHint = $('drop-hint'), fileCountBadge = $('file-count-badge');
 const btnUpload = $('btn-upload'), btnLabel = $('btn-label');
-const btnDownXml = $('btn-download-xml');
 const logPanel = $('log-panel');
 const progWrap = $('prog-wrap'), progBar = $('prog-bar');
 const progPct = $('prog-pct'), progLabel = $('prog-label');
@@ -400,33 +399,9 @@ function checkUploadReady() {
     const hasValid = files.some(f => f.valid);
     btnUpload.disabled = !state.username || !hasSel || !hasValid || busy;
     const showDownload = selMode === 'sprites' && hasSel && hasValid && !!state.username;
-    btnDownXml.style.display = showDownload ? '' : 'none';
-    btnDownXml.disabled = busy;
 }
 
 // ═══ MAIN UPLOAD ═════════════════════════════════════════════════════════════
-btnDownXml.addEventListener('click', async () => {
-    if (busy || btnDownXml.disabled) return;
-    const validFiles = files.filter(f => f.valid);
-    setBusy(true);
-    try {
-        const byProject = {};
-        for (const s of selectedSprites) { if (!byProject[s.projectName]) byProject[s.projectName] = []; byProject[s.projectName].push(s); }
-        for (const [projName, sprites] of Object.entries(byProject)) {
-            let {projectXml, mediaXml} = await getOrFetch(projName);
-            for (const {file, xmlType} of validFiles) {
-                const e = fileExt(file);
-                if (EXTS_IMG.includes(e)) { for (const s of sprites) { const r = await uploadImageToSprite(projectXml, mediaXml, s.spriteName, file); projectXml = r.projectXml; mediaXml = r.mediaXml; } }
-                else if (EXTS_AUDIO.includes(e)) { for (const s of sprites) { const r = await uploadAudioToSprite(projectXml, mediaXml, s.spriteName, file); projectXml = r.projectXml; mediaXml = r.mediaXml; } }
-                else if (e === 'xml' && ['script','scripts'].includes(xmlType)) { const text = await file.text(); for (const s of sprites) { const r = importScriptXml(projectXml, mediaXml, s.spriteName, text); projectXml = r.projectXml; mediaXml = r.mediaXml; } }
-            }
-            console.log("Download triggered for", projName);
-            log(`⬇ Downloaded modified XML for "${projName}" — load this file in Snap! to test`, 'ok');
-        }
-    } catch (e) { log('✗ Download error: ' + e.message, 'err'); }
-    finally { setBusy(false); setProgress(false); }
-});
-
 btnUpload.addEventListener('click', async () => {
     if (busy || btnUpload.disabled) return;
     const validFiles = files.filter(f => f.valid);

@@ -57,7 +57,6 @@ function wireEvents() {
     $('btn-clear-sel')?.addEventListener('click', clearSelection);
     $('btn-clear-files')?.addEventListener('click', () => { files = []; renderFiles(); updateDetectBox(); checkUploadReady(); log('Files cleared', 'dim'); });
     $('btn-upload')?.addEventListener('click', onUploadClick);
-    $('btn-download-xml')?.addEventListener('click', onDownloadClick);
     $('btn-clear-log')?.addEventListener('click', () => { const lp = $('log-panel'); if (lp) lp.innerHTML = '<div class="log-dim">// cleared</div>'; });
 }
 
@@ -311,8 +310,6 @@ function checkUploadReady() {
     const hasSel = selMode === 'projects' ? selectedProjects.size > 0 : selectedSprites.length > 0;
     const hasValid = files.some(f => f.valid);
     const bu = $('btn-upload'); if (bu) bu.disabled = !state.username || !hasSel || !hasValid || busy;
-    const bd = $('btn-download-xml');
-    if (bd) { bd.style.display = (selMode === 'sprites' && hasSel && hasValid && !!state.username) ? '' : 'none'; bd.disabled = busy; }
 }
 
 // ═══ UPLOAD ══════════════════════════════════════════════════════════════════
