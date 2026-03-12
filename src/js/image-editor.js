@@ -843,14 +843,12 @@ async function onRun() {
     if (lblEl) lblEl.textContent = 'Done!';
 
     // ── Download ──
-    if (hasFolders && results.length > 0) {
-        // ZIP download preserving folder tree
+    if (results.length > 1) {
+        // ZIP download (preserves folder tree when folders are present)
         if (lblEl) lblEl.textContent = 'Creating ZIP…';
         await downloadAsZip(results);
     } else if (results.length === 1) {
         downloadBlob(results[0].blob, results[0].relPath);
-    } else if (results.length > 1) {
-        for (const r of results) downloadBlob(r.blob, r.relPath);
     }
 
     busy = false;
