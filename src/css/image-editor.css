@@ -503,3 +503,55 @@
   font-size: 0.75rem;
   padding: 0.3rem 0;
 }
+
+/* ═══ TRIM TO SMALLEST — append these rules to src/css/image-editor.css ════ */
+
+/* ── 3-column mode tabs (for trim: Auto / Smallest / Manual) ────────────── */
+.imgedit-mode-tabs-3 .imgedit-mode-tab {
+  font-size: 0.73rem;
+  padding: 0.4rem 0.4rem;
+}
+
+/* ── Auto-trim description hint ─────────────────────────────────────────── */
+.ie-trim-auto-hint {
+  margin-top: 0.4rem;
+}
+.imgedit-trim-mode-desc {
+  @apply font-display text-snap-muted;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+/* ── Trim to smallest: options container ────────────────────────────────── */
+.imgedit-smallest-opts {
+  @apply flex flex-wrap gap-2 items-start w-full;
+  margin-top: 0.4rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid theme('colors.snap.border');
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* ── Select dropdown ────────────────────────────────────────────────────── */
+.imgedit-select {
+  @apply font-display bg-snap-surface border border-snap-border rounded-md text-snap-text outline-none transition-colors cursor-pointer;
+  padding: 0.3rem 0.45rem;
+  font-size: 0.8rem;
+  min-width: 150px;
+}
+.imgedit-select:focus {
+  @apply border-snap-accent;
+}
+
+/* ── Target size info badge ─────────────────────────────────────────────── */
+.imgedit-trim-smallest-info {
+  @apply w-full;
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.imgedit-trim-smallest-badge {
+  @apply font-display font-semibold text-snap-accent;
+  font-size: 0.78rem;
+}

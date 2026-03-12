@@ -40,6 +40,14 @@ PNG, JPG, GIF, WEBP, SVG
 
 **Trim** — ritaglio dei bordi dell'immagine:
 - **Auto-trim**: rimuove automaticamente i bordi trasparenti (alpha = 0) attorno al contenuto visibile dell'immagine
+- **Trim to smallest**: ritaglia tutte le immagini alla dimensione dell'immagine più piccola, con diverse modalità di calcolo:
+  - *Smallest area* (default): usa le dimensioni W×H dell'immagine con area più piccola
+  - *Smallest width*: usa la larghezza dell'immagine più stretta (e la sua altezza)
+  - *Smallest height*: usa l'altezza dell'immagine più bassa (e la sua larghezza)
+  - *Min W + min H*: prende la larghezza minima e l'altezza minima separatamente tra tutte le immagini
+  - **Ancoraggio**: scelta del punto di riferimento per il ritaglio (center di default, oppure top-left, top-right, bottom-left, bottom-right)
+  - La dimensione target viene calcolata a runtime in base allo stato delle immagini dopo le azioni precedenti nella pipeline
+  - Un'anteprima della dimensione target è visibile sia nella card dell'azione che nel pannello Run
 - **Trim manuale**: permette di specificare quanti pixel rimuovere da ciascun lato (top, right, bottom, left)
 
 **Resize** — ridimensionamento dell'immagine:
@@ -108,6 +116,14 @@ PNG, JPG, GIF, WEBP, SVG
 
 **Trim** — crop image borders:
 - **Auto-trim**: automatically removes transparent borders (alpha = 0) around the visible content of the image
+- **Trim to smallest**: crops all images to the size of the smallest one, with several calculation modes:
+  - *Smallest area* (default): uses the W×H dimensions of the image with the smallest area
+  - *Smallest width*: uses the width of the narrowest image (and its height)
+  - *Smallest height*: uses the height of the shortest image (and its width)
+  - *Min W + min H*: takes the minimum width and minimum height separately across all images
+  - **Anchor**: choose the reference point for cropping (center by default, or top-left, top-right, bottom-left, bottom-right)
+  - The target size is computed at runtime based on image dimensions after any preceding actions in the pipeline
+  - A preview of the target size is shown in both the action card and the Run panel
 - **Manual trim**: specify how many pixels to remove from each side (top, right, bottom, left)
 
 **Resize** — scale the image:

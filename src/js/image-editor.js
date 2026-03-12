@@ -143,87 +143,69 @@ function traverseEntry(entry, parentPath, collected) {
         } else if (entry.isDirectory) {
             const reader = entry.createReader();
             const dirPath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
-            readAllEntries(reader, dirPath, collected).then(resolve);
+            reader.readEntries(async children => {
+                await Promise.all(children.map(c => traverseEntry(c, dirPath, collected)));
+                resolve();
+            }, () => resolve());
         } else {
             resolve();
         }
     });
 }
 
-function readAllEntries(reader, dirPath, collected) {
-    return new Promise(resolve => {
-        const allEntries = [];
-        (function readBatch() {
-            reader.readEntries(batch => {
-                if (!batch.length) {
-                    Promise.all(allEntries.map(e => traverseEntry(e, dirPath, collected))).then(resolve);
-                } else {
-                    allEntries.push(...batch);
-                    readBatch(); // readEntries can return partial results
-                }
-            }, () => resolve());
-        })();
-    });
-}
-
 /**
- * Add files from <input> (both file and folder inputs).
- * For folder input, files have webkitRelativePath.
+ * From a flat FileList (no webkitRelativePath awareness beyond what the browser gives).
  */
-function addFilesWithPaths(fileList) {
+function addFilesWithPaths(files) {
     const collected = [];
-    for (const file of fileList) {
-        if (!isImageFile(file)) continue;
-        // webkitRelativePath is set when using webkitdirectory input
-        const relPath = file.webkitRelativePath || file.name;
-        collected.push({ file, relPath });
+    for (const f of files) {
+        if (!isImageFile(f)) continue;
+        const rel = f.webkitRelativePath || f.name;
+        collected.push({ file: f, relPath: rel });
     }
     if (collected.length) loadImageEntries(collected);
 }
 
-/**
- * Load collected { file, relPath } entries into the images array.
- */
 function loadImageEntries(entries) {
     let loaded = 0;
-    const total = entries.length;
-
-    entries.forEach(({ file, relPath }) => {
-        // Check if any relPath has a '/' → folder structure present
-        if (relPath.includes('/')) hasFolders = true;
-
+    for (const { file, relPath } of entries) {
         const url = URL.createObjectURL(file);
         const img = new Image();
         img.onload = () => {
             images.push({ file, url, img, w: img.naturalWidth, h: img.naturalHeight, relPath });
+            if (relPath.includes('/')) hasFolders = true;
             loaded++;
-            if (loaded === total) { renderThumbs(); updateUI(); }
+            if (loaded === entries.length) {
+                renderThumbs();
+                updateUI();
+                // Refresh any smallest-info displays
+                refreshSmallestInfoAll();
+            }
         };
         img.onerror = () => {
             URL.revokeObjectURL(url);
             loaded++;
-            if (loaded === total) { renderThumbs(); updateUI(); }
+            if (loaded === entries.length) {
+                renderThumbs();
+                updateUI();
+            }
         };
         img.src = url;
-    });
+    }
 }
 
-// ═══ THUMBNAILS ══════════════════════════════════════════════════════════════
+// ═══ THUMBNAIL LIST ══════════════════════════════════════════════════════════
 function renderThumbs() {
     const list = $('ie-thumb-list');
+    const empty = $('ie-thumb-empty');
     if (!list) return;
-    list.innerHTML = '';
+    list.querySelectorAll('.imgedit-thumb').forEach(el => el.remove());
 
     if (!images.length) {
-        list.innerHTML = `<div class="imgedit-empty-state">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="32" height="32">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-            </svg>
-            <span>No images loaded</span>
-          </div>`;
+        if (empty) empty.style.display = 'flex';
         return;
     }
+    if (empty) empty.style.display = 'none';
 
     images.forEach((entry, i) => {
         const thumb = document.createElement('div');
@@ -244,6 +226,7 @@ function renderThumbs() {
             hasFolders = images.some(img => img.relPath.includes('/'));
             renderThumbs();
             updateUI();
+            refreshSmallestInfoAll();
         });
         thumb.appendChild(del);
 
@@ -269,7 +252,7 @@ const ICONS = {
 };
 
 function defaultOpts(type) {
-    if (type === 'trim') return { auto: true, top: 0, right: 0, bottom: 0, left: 0 };
+    if (type === 'trim') return { mode: 'auto', sizeMode: 'area', anchor: 'center', top: 0, right: 0, bottom: 0, left: 0 };
     if (type === 'resize') return { mode: 'scale', scale: 50, w: 256, h: 256, lock: true };
     return {};
 }
@@ -342,30 +325,69 @@ function buildTrimBody(action) {
     const o = action.opts;
     const uid = `at${action.id}`;
     return `
-        <div class="imgedit-trim-layout">
-            <label class="imgedit-toggle-option imgedit-toggle-inline">
-                <input type="checkbox" class="ie-trim-auto" data-uid="${uid}" ${o.auto ? 'checked' : ''}/>
-                <span class="imgedit-toggle-slider"></span>
-                <span class="imgedit-toggle-text">Auto-trim</span>
-                <span class="imgedit-toggle-hint ie-trim-hint" data-uid="${uid}" style="display:${o.auto ? 'inline' : 'none'}">— remove transparent borders</span>
-            </label>
-            <div class="imgedit-option-row ie-trim-manual" data-uid="${uid}" style="display:${o.auto ? 'none' : 'flex'}">
-                <div class="imgedit-field-group">
-                    <label class="imgedit-field-label">Top</label>
-                    <input type="number" class="imgedit-input ie-trim-val" data-side="top" value="${o.top}" min="0" placeholder="px"/>
-                </div>
-                <div class="imgedit-field-group">
-                    <label class="imgedit-field-label">Right</label>
-                    <input type="number" class="imgedit-input ie-trim-val" data-side="right" value="${o.right}" min="0" placeholder="px"/>
-                </div>
-                <div class="imgedit-field-group">
-                    <label class="imgedit-field-label">Bottom</label>
-                    <input type="number" class="imgedit-input ie-trim-val" data-side="bottom" value="${o.bottom}" min="0" placeholder="px"/>
-                </div>
-                <div class="imgedit-field-group">
-                    <label class="imgedit-field-label">Left</label>
-                    <input type="number" class="imgedit-input ie-trim-val" data-side="left" value="${o.left}" min="0" placeholder="px"/>
-                </div>
+        <div class="imgedit-mode-tabs imgedit-mode-tabs-3">
+            <button class="imgedit-mode-tab ${o.mode === 'auto' ? 'active' : ''}" data-mode="auto" data-uid="${uid}" type="button">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+                Auto
+            </button>
+            <button class="imgedit-mode-tab ${o.mode === 'smallest' ? 'active' : ''}" data-mode="smallest" data-uid="${uid}" type="button">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 13l-7 7-7-7m14-8l-7 7-7-7"/>
+                </svg>
+                Smallest
+            </button>
+            <button class="imgedit-mode-tab ${o.mode === 'manual' ? 'active' : ''}" data-mode="manual" data-uid="${uid}" type="button">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="14" height="14">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                </svg>
+                Manual
+            </button>
+        </div>
+        <div class="ie-trim-auto-hint" data-uid="${uid}" style="display:${o.mode === 'auto' ? 'block' : 'none'}">
+            <span class="imgedit-trim-mode-desc">Removes transparent borders (alpha = 0) around the visible content.</span>
+        </div>
+        <div class="imgedit-smallest-opts ie-trim-smallest-opts" data-uid="${uid}" style="display:${o.mode === 'smallest' ? 'flex' : 'none'}">
+            <div class="imgedit-field-group">
+                <label class="imgedit-field-label">Size by</label>
+                <select class="imgedit-select ie-trim-sizemode" data-uid="${uid}">
+                    <option value="area" ${o.sizeMode === 'area' ? 'selected' : ''}>Smallest area (W×H)</option>
+                    <option value="width" ${o.sizeMode === 'width' ? 'selected' : ''}>Smallest width</option>
+                    <option value="height" ${o.sizeMode === 'height' ? 'selected' : ''}>Smallest height</option>
+                    <option value="both" ${o.sizeMode === 'both' ? 'selected' : ''}>Min W + min H</option>
+                </select>
+            </div>
+            <div class="imgedit-field-group">
+                <label class="imgedit-field-label">Anchor</label>
+                <select class="imgedit-select ie-trim-anchor" data-uid="${uid}">
+                    <option value="center" ${o.anchor === 'center' ? 'selected' : ''}>Center</option>
+                    <option value="top-left" ${o.anchor === 'top-left' ? 'selected' : ''}>Top-left</option>
+                    <option value="top-right" ${o.anchor === 'top-right' ? 'selected' : ''}>Top-right</option>
+                    <option value="bottom-left" ${o.anchor === 'bottom-left' ? 'selected' : ''}>Bottom-left</option>
+                    <option value="bottom-right" ${o.anchor === 'bottom-right' ? 'selected' : ''}>Bottom-right</option>
+                </select>
+            </div>
+            <div class="imgedit-trim-smallest-info ie-trim-smallest-info" data-uid="${uid}">
+                ${images.length >= 2 ? getSmallestInfo(o) : '<span class="imgedit-run-dim">Load 2+ images to see target size</span>'}
+            </div>
+        </div>
+        <div class="imgedit-option-row ie-trim-manual" data-uid="${uid}" style="display:${o.mode === 'manual' ? 'flex' : 'none'}">
+            <div class="imgedit-field-group">
+                <label class="imgedit-field-label">Top</label>
+                <input type="number" class="imgedit-input ie-trim-val" data-side="top" value="${o.top}" min="0" placeholder="px"/>
+            </div>
+            <div class="imgedit-field-group">
+                <label class="imgedit-field-label">Right</label>
+                <input type="number" class="imgedit-input ie-trim-val" data-side="right" value="${o.right}" min="0" placeholder="px"/>
+            </div>
+            <div class="imgedit-field-group">
+                <label class="imgedit-field-label">Bottom</label>
+                <input type="number" class="imgedit-input ie-trim-val" data-side="bottom" value="${o.bottom}" min="0" placeholder="px"/>
+            </div>
+            <div class="imgedit-field-group">
+                <label class="imgedit-field-label">Left</label>
+                <input type="number" class="imgedit-input ie-trim-val" data-side="left" value="${o.left}" min="0" placeholder="px"/>
             </div>
         </div>
     `;
@@ -373,18 +395,49 @@ function buildTrimBody(action) {
 
 function wireTrimCard(body, action) {
     const uid = `at${action.id}`;
-    const autoChk = body.querySelector(`.ie-trim-auto[data-uid="${uid}"]`);
+    const tabs = body.querySelectorAll(`.imgedit-mode-tab[data-uid="${uid}"]`);
+    const autoHint = body.querySelector(`.ie-trim-auto-hint[data-uid="${uid}"]`);
+    const smallestOpts = body.querySelector(`.ie-trim-smallest-opts[data-uid="${uid}"]`);
     const manualRow = body.querySelector(`.ie-trim-manual[data-uid="${uid}"]`);
-    const hint = body.querySelector(`.ie-trim-hint[data-uid="${uid}"]`);
-    autoChk?.addEventListener('change', function () {
-        action.opts.auto = this.checked;
-        if (manualRow) manualRow.style.display = this.checked ? 'none' : 'flex';
-        if (hint) hint.style.display = this.checked ? 'inline' : 'none';
+    const smallestInfo = body.querySelector(`.ie-trim-smallest-info[data-uid="${uid}"]`);
+    const sizeModeEl = body.querySelector(`.ie-trim-sizemode[data-uid="${uid}"]`);
+    const anchorEl = body.querySelector(`.ie-trim-anchor[data-uid="${uid}"]`);
+
+    function refreshPanels() {
+        const m = action.opts.mode;
+        if (autoHint) autoHint.style.display = m === 'auto' ? 'block' : 'none';
+        if (smallestOpts) smallestOpts.style.display = m === 'smallest' ? 'flex' : 'none';
+        if (manualRow) manualRow.style.display = m === 'manual' ? 'flex' : 'none';
+        if (m === 'smallest' && smallestInfo) {
+            smallestInfo.innerHTML = images.length >= 2 ? getSmallestInfo(action.opts) : '<span class="imgedit-run-dim">Load 2+ images to see target size</span>';
+        }
+    }
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const mode = tab.dataset.mode;
+            action.opts.mode = mode;
+            tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+            refreshPanels();
+            updateUI();
+        });
+    });
+
+    sizeModeEl?.addEventListener('change', function () {
+        action.opts.sizeMode = this.value;
+        if (smallestInfo) smallestInfo.innerHTML = images.length >= 2 ? getSmallestInfo(action.opts) : '<span class="imgedit-run-dim">Load 2+ images to see target size</span>';
         updateUI();
     });
+
+    anchorEl?.addEventListener('change', function () {
+        action.opts.anchor = this.value;
+        updateUI();
+    });
+
     body.querySelectorAll('.ie-trim-val').forEach(inp => {
         inp.addEventListener('input', function () {
             action.opts[this.dataset.side] = parseInt(this.value) || 0;
+            updateUI();
         });
     });
 }
@@ -500,7 +553,11 @@ function wireResizeCard(body, action) {
 function getActionDetail(action) {
     if (action.type === 'trim') {
         const o = action.opts;
-        if (o.auto) return 'Auto — remove transparent borders';
+        if (o.mode === 'smallest') {
+            const modeLabel = { area: 'smallest area', width: 'min width', height: 'min height', both: 'min W+H' }[o.sizeMode] || o.sizeMode;
+            return `To smallest (${modeLabel}, ${o.anchor})`;
+        }
+        if (o.mode === 'auto') return 'Auto — remove transparent borders';
         return `Manual — T:${o.top} R:${o.right} B:${o.bottom} L:${o.left}px`;
     }
     if (action.type === 'resize') {
@@ -609,7 +666,19 @@ function updateSummary() {
     html += ` · ${actions.length} action${actions.length > 1 ? 's' : ''}</div>`;
     actions.forEach((a, i) => {
         if (a.type === 'trim') {
-            html += makeRunItem('trim', `${i + 1}. Trim (${a.opts.auto ? 'auto' : 'manual'})`);
+            let trimLabel;
+            if (a.opts.mode === 'smallest') {
+                const modeLabel = { area: 'smallest area', width: 'min width', height: 'min height', both: 'min W+H' }[a.opts.sizeMode] || a.opts.sizeMode;
+                trimLabel = `${i + 1}. Trim to smallest (${modeLabel})`;
+                if (images.length >= 2) {
+                    const dims = images.map(e => ({ width: e.w, height: e.h }));
+                    const target = computeSmallestSize(a.opts.sizeMode, dims);
+                    if (target) trimLabel += ` → ${target.w}×${target.h}px`;
+                }
+            } else {
+                trimLabel = `${i + 1}. Trim (${a.opts.mode === 'auto' ? 'auto' : 'manual'})`;
+            }
+            html += makeRunItem('trim', trimLabel);
         } else {
             if (a.opts.mode === 'scale') {
                 html += makeRunItem('resize', `${i + 1}. Resize ${a.opts.scale}%`);
@@ -628,6 +697,84 @@ function makeRunItem(icon, text) {
     return `<div class="imgedit-run-item">${ICONS[icon] || ''}<span>${text}</span></div>`;
 }
 
+// ═══ TRIM-TO-SMALLEST HELPERS ════════════════════════════════════════════════
+
+/** Compute the target size based on sizeMode from an array of canvas-like objects ({width,height}) */
+function computeSmallestSize(sizeMode, canvases) {
+    if (!canvases || canvases.length < 2) return null;
+    const dims = canvases.map(c => ({ w: c.width, h: c.height }));
+
+    if (sizeMode === 'area') {
+        let minArea = Infinity, best = dims[0];
+        for (const d of dims) {
+            const area = d.w * d.h;
+            if (area < minArea) { minArea = area; best = d; }
+        }
+        return { w: best.w, h: best.h };
+    }
+    if (sizeMode === 'width') {
+        const minW = Math.min(...dims.map(d => d.w));
+        const match = dims.find(d => d.w === minW);
+        return { w: minW, h: match.h };
+    }
+    if (sizeMode === 'height') {
+        const minH = Math.min(...dims.map(d => d.h));
+        const match = dims.find(d => d.h === minH);
+        return { w: match.w, h: minH };
+    }
+    if (sizeMode === 'both') {
+        return { w: Math.min(...dims.map(d => d.w)), h: Math.min(...dims.map(d => d.h)) };
+    }
+    return null;
+}
+
+/** Get a preview info string for the smallest-info display (uses loaded image sizes) */
+function getSmallestInfo(opts) {
+    if (images.length < 2) return '';
+    const dims = images.map(e => ({ width: e.w, height: e.h }));
+    const size = computeSmallestSize(opts.sizeMode, dims);
+    if (!size) return '';
+    return `<span class="imgedit-trim-smallest-badge">Target: ${size.w}×${size.h}px</span><span class="imgedit-run-dim"> (preview — final size computed at runtime)</span>`;
+}
+
+/** Refresh all smallest-info displays in existing action cards (e.g. when images change) */
+function refreshSmallestInfoAll() {
+    for (const action of actions) {
+        if (action.type === 'trim' && action.opts.mode === 'smallest') {
+            const uid = `at${action.id}`;
+            const infoEl = document.querySelector(`.ie-trim-smallest-info[data-uid="${uid}"]`);
+            if (infoEl) {
+                infoEl.innerHTML = images.length >= 2 ? getSmallestInfo(action.opts) : '<span class="imgedit-run-dim">Load 2+ images to see target size</span>';
+            }
+        }
+    }
+}
+
+/** Crop a canvas to target W×H with anchor positioning */
+function cropToSize(canvas, targetW, targetH, anchor) {
+    const tw = Math.min(targetW, canvas.width);
+    const th = Math.min(targetH, canvas.height);
+
+    let sx = 0, sy = 0;
+    if (anchor === 'center') {
+        sx = Math.round((canvas.width - tw) / 2);
+        sy = Math.round((canvas.height - th) / 2);
+    } else if (anchor === 'top-left') {
+        sx = 0; sy = 0;
+    } else if (anchor === 'top-right') {
+        sx = canvas.width - tw; sy = 0;
+    } else if (anchor === 'bottom-left') {
+        sx = 0; sy = canvas.height - th;
+    } else if (anchor === 'bottom-right') {
+        sx = canvas.width - tw; sy = canvas.height - th;
+    }
+
+    const c = document.createElement('canvas');
+    c.width = tw; c.height = th;
+    c.getContext('2d').drawImage(canvas, sx, sy, tw, th, 0, 0, tw, th);
+    return c;
+}
+
 // ═══ RUN (PROCESS) ═══════════════════════════════════════════════════════════
 async function onRun() {
     if (busy || !images.length || !actions.length) return;
@@ -644,6 +791,33 @@ async function onRun() {
     const results = [];  // { blob, relPath }
     const total = images.length;
 
+    // ── Check if any trim action uses "smallest" mode ──
+    const hasSmallestTrim = actions.some(a => a.type === 'trim' && a.opts.mode === 'smallest');
+
+    // ── Pre-compute target sizes for trim-to-smallest actions ──
+    // For each "smallest" trim, simulate the pipeline up to that point
+    // for ALL images, collect intermediate sizes, then pick the smallest.
+    const smallestTargets = new Map(); // actionId -> { w, h }
+
+    if (hasSmallestTrim) {
+        if (lblEl) lblEl.textContent = 'Computing sizes…';
+        for (const action of actions) {
+            if (action.type === 'trim' && action.opts.mode === 'smallest') {
+                const intermediateCanvases = [];
+                for (const entry of images) {
+                    let canvas = imgToCanvas(entry.img);
+                    for (const prevAction of actions) {
+                        if (prevAction.id === action.id) break; // stop before this action
+                        canvas = applyAction(canvas, prevAction, smallestTargets);
+                    }
+                    intermediateCanvases.push(canvas);
+                }
+                const target = computeSmallestSize(action.opts.sizeMode, intermediateCanvases);
+                if (target) smallestTargets.set(action.id, target);
+            }
+        }
+    }
+
     for (let i = 0; i < total; i++) {
         const entry = images[i];
         if (barEl) barEl.style.width = `${(i / total) * 100}%`;
@@ -654,24 +828,7 @@ async function onRun() {
             let canvas = imgToCanvas(entry.img);
 
             for (const action of actions) {
-                if (action.type === 'trim') {
-                    const o = action.opts;
-                    canvas = o.auto ? autoTrim(canvas) : manualTrim(canvas, o.top, o.right, o.bottom, o.left);
-                } else if (action.type === 'resize') {
-                    const o = action.opts;
-                    if (o.mode === 'scale') {
-                        const s = (o.scale || 50) / 100;
-                        canvas = resizeCanvas(canvas, Math.max(1, Math.round(canvas.width * s)), Math.max(1, Math.round(canvas.height * s)));
-                    } else {
-                        let fw = o.w || 256, fh = o.h || 256;
-                        if (o.lock) {
-                            const ratio = canvas.width / canvas.height;
-                            if (fw / fh > ratio) fw = Math.round(fh * ratio);
-                            else fh = Math.round(fw / ratio);
-                        }
-                        canvas = resizeCanvas(canvas, Math.max(1, fw), Math.max(1, fh));
-                    }
-                }
+                canvas = applyAction(canvas, action, smallestTargets);
             }
 
             const blob = await canvasToBlob(canvas, entry.file.type);
@@ -800,28 +957,48 @@ function resizeCanvas(canvas, w, h) {
     return c;
 }
 
+/** Apply a single action to a canvas — used both in pre-pass and main pass */
+function applyAction(canvas, action, smallestTargets) {
+    if (action.type === 'trim') {
+        const o = action.opts;
+        if (o.mode === 'smallest') {
+            const target = smallestTargets?.get(action.id);
+            if (target) {
+                canvas = cropToSize(canvas, target.w, target.h, o.anchor);
+            }
+        } else if (o.mode === 'auto') {
+            canvas = autoTrim(canvas);
+        } else {
+            canvas = manualTrim(canvas, o.top, o.right, o.bottom, o.left);
+        }
+    } else if (action.type === 'resize') {
+        const o = action.opts;
+        if (o.mode === 'scale') {
+            const s = (o.scale || 50) / 100;
+            canvas = resizeCanvas(canvas, Math.max(1, Math.round(canvas.width * s)), Math.max(1, Math.round(canvas.height * s)));
+        } else {
+            let fw = o.w || 256, fh = o.h || 256;
+            if (o.lock) {
+                const ratio = canvas.width / canvas.height;
+                if (fw / fh > ratio) fw = Math.round(fh * ratio);
+                else fh = Math.round(fw / ratio);
+            }
+            canvas = resizeCanvas(canvas, Math.max(1, fw), Math.max(1, fh));
+        }
+    }
+    return canvas;
+}
+
 function canvasToBlob(canvas, mimeType) {
     const mime = (mimeType === 'image/svg+xml') ? 'image/png' : (mimeType || 'image/png');
-    return new Promise(resolve => canvas.toBlob(blob => resolve(blob), mime));
+    return new Promise(resolve => canvas.toBlob(resolve, mime));
 }
 
 function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = filename;
-    document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
-
-// ═══ LOG ═════════════════════════════════════════════════════════════════════
-function log(msg, type = 'info') {
-    const el = $('ie-log');
-    if (!el) return;
-    const d = document.createElement('div');
-    d.className = { ok: 'log-ok', err: 'log-err', info: 'log-info', warn: 'log-warn', dim: 'log-dim' }[type] || 'log-info';
-    d.textContent = `${{ ok: '✓', err: '✗', info: '·', warn: '⚠' }[type] || '·'} ${msg}`;
-    el.appendChild(d);
-    el.scrollTop = el.scrollHeight;
+    URL.revokeObjectURL(url);
 }
